@@ -816,6 +816,62 @@ class ProfileScreen extends StatelessWidget {
 
                     const SizedBox(height: 24),
 
+                    // Theme toggle card for mobile
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: theme.cardColor,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: theme.dividerColor),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+                                color: AppColors.primary,
+                              ),
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Interface Theme',
+                                    style: theme.textTheme.bodyLarge?.copyWith(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    isDark ? 'Dark Mode Active' : 'Light Mode Active',
+                                    style: theme.textTheme.bodyMedium?.copyWith(fontSize: 9),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          ValueListenableBuilder<ThemeMode>(
+                            valueListenable: themeModeNotifier,
+                            builder: (context, currentMode, _) {
+                              return Switch(
+                                value: currentMode == ThemeMode.dark,
+                                activeColor: Colors.white,
+                                activeTrackColor: AppColors.primary,
+                                onChanged: (val) {
+                                  themeModeNotifier.value = val ? ThemeMode.dark : ThemeMode.light;
+                                },
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
                     // Verification checklist card
                     Container(
                       padding: const EdgeInsets.all(16),
