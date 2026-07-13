@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme.dart';
+import 'bottom_navbar.dart';
 
 class ResponsiveConsoleShell extends StatelessWidget {
   final Widget child;
@@ -88,11 +89,33 @@ class ResponsiveConsoleShell extends StatelessWidget {
     final state = GoRouterState.of(context);
     final currentPath = state.uri.toString();
 
+    final showNavbar = currentPath == '/dashboard' ||
+        currentPath == '/bookings' ||
+        currentPath == '/services' ||
+        currentPath == '/profile' ||
+        currentPath == '/earnings';
+
+    String activeTab = 'dashboard';
+    if (currentPath == '/bookings') {
+      activeTab = 'bookings';
+    } else if (currentPath == '/services') {
+      activeTab = 'services';
+    } else if (currentPath == '/profile' || currentPath == '/earnings') {
+      activeTab = 'profile';
+    }
+
     // If screen width is 900px or less, render the pure mobile screen directly
     if (size.width <= 900) {
-      return Scaffold(
-        body: child,
-      );
+      if (showNavbar) {
+        return Scaffold(
+          body: child,
+          bottomNavigationBar: ProviderBottomNavbar(activeTab: activeTab),
+        );
+      } else {
+        return Scaffold(
+          body: child,
+        );
+      }
     }
 
     final specs = _getInspectorSpecs(currentPath);
@@ -649,7 +672,32 @@ class ResponsiveConsoleShell extends StatelessWidget {
 
               // Actual Route view
               Expanded(
-                child: child,
+                child: () {
+                  final currentPath = GoRouterState.of(context).uri.toString();
+                  final showNavbar = currentPath == '/dashboard' ||
+                      currentPath == '/bookings' ||
+                      currentPath == '/services' ||
+                      currentPath == '/profile' ||
+                      currentPath == '/earnings';
+
+                  String activeTab = 'dashboard';
+                  if (currentPath == '/bookings') {
+                    activeTab = 'bookings';
+                  } else if (currentPath == '/services') {
+                    activeTab = 'services';
+                  } else if (currentPath == '/profile' || currentPath == '/earnings') {
+                    activeTab = 'profile';
+                  }
+
+                  if (showNavbar) {
+                    return Scaffold(
+                      body: child,
+                      bottomNavigationBar: ProviderBottomNavbar(activeTab: activeTab),
+                    );
+                  } else {
+                    return child;
+                  }
+                }(),
               ),
 
               // Bottom Home bar indicator

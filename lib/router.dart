@@ -1,6 +1,13 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'screens/auth_screens.dart';
+import 'package:provider_app/screens/addservice_screen.dart';
+import 'package:provider_app/screens/auth/onboarding_screen.dart';
+import 'package:provider_app/screens/auth/signup_screen.dart';
+import 'package:provider_app/screens/auth/splash_screen.dart';
+import 'package:provider_app/screens/bookingDetails_screen.dart';
+import 'package:provider_app/screens/chat_screen.dart';
+import 'package:provider_app/screens/earning_screen.dart';
+import 'package:provider_app/screens/profile_screen.dart';
+import 'screens/auth/signin_screen.dart';
 import 'screens/dashboard_screens.dart';
 import 'screens/bookings_screens.dart';
 import 'screens/catalog_screens.dart';
@@ -14,10 +21,7 @@ final GoRouter router = GoRouter(
         return ResponsiveConsoleShell(child: child);
       },
       routes: [
-        GoRoute(
-          path: '/',
-          builder: (context, state) => const SplashScreen(),
-        ),
+        GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
         GoRoute(
           path: '/onboarding',
           builder: (context, state) => const OnboardingScreen(),
@@ -42,10 +46,7 @@ final GoRouter router = GoRouter(
           path: '/bookings/detail',
           builder: (context, state) => const BookingDetailScreen(),
         ),
-        GoRoute(
-          path: '/chat',
-          builder: (context, state) => const ChatScreen(),
-        ),
+        GoRoute(path: '/chat', builder: (context, state) => const ChatScreen()),
         GoRoute(
           path: '/services',
           builder: (context, state) => const ServicesScreen(),
