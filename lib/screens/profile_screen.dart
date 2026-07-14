@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme.dart';
+import '../services/authServices.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -253,6 +255,116 @@ class ProfileScreen extends StatelessWidget {
                             '256-bit Encrypted Banking Nodes Bonded',
                           ),
                         ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Log Out Action Card
+                    InkWell(
+                      onTap: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            backgroundColor: theme.cardColor,
+                            title: Text(
+                              'Confirm Sign Out',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            content: Text(
+                              'Are you sure you want to sign out of the system gateway?',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontSize: 13,
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.of(context).pop(false),
+                                child: Text(
+                                  'Cancel',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  ref.read(authServiceProvider).logout();
+                                  Navigator.of(context).pop(true);
+                                },
+                                child: const Text(
+                                  'Sign Out',
+                                  style: TextStyle(
+                                    color: AppColors.danger,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (confirm == true) {
+                          final success = await ref
+                              .read(authServiceProvider)
+                              .logout();
+                          if (success && context.mounted) {
+                            context.go('/login');
+                          }
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: theme.cardColor,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppColors.danger.withAlpha(51),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.logout_rounded,
+                                  color: AppColors.danger,
+                                ),
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Sign Out Gateway',
+                                      style: theme.textTheme.bodyLarge
+                                          ?.copyWith(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.danger,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Terminate current active session logs',
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(fontSize: 9),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            const Icon(
+                              Icons.chevron_right,
+                              size: 16,
+                              color: AppColors.danger,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],

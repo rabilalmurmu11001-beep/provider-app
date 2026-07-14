@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme.dart';
+import '../../secureStorage.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -20,6 +21,30 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
+    _checkAuthToken();
+  }
+
+  Future<void> _checkAuthToken() async {
+    // 2-second delay to show splash animation
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+
+    try {
+      final token = await TokenRepository().readToken();
+      if (token != null && token.isNotEmpty) {
+        if (mounted) {
+          context.go('/dashboard');
+        }
+      } else {
+        if (mounted) {
+          context.go('/onboarding');
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        context.go('/onboarding');
+      }
+    }
   }
 
   @override
