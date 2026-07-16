@@ -1,22 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider_app/services/authServices.dart';
+import 'package:provider_app/stores/providers.dart';
 import '../theme.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _isOnline = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Fetch the provider profile when the widget is initialized
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final Map<String, dynamic>? profileState = ref.read(
+        providerProfileProvider,
+      );
+      if (profileState == null) {
+        // Fetch the profile data and update the state
+        ref
+            .read(authServiceProvider)
+            .getUserProfile()
+            .then((response) {
+              ref.read(providerProfileProvider.notifier).state = response.data?['user'];
+            })
+            .catchError((error) {
+              print('Error fetching profile: $error');
+            });
+        ref.read(providerProfileProvider.notifier).state = {};
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final Map<String, dynamic>? profileState = ref.watch(providerProfileProvider);
+
+    print('Profile State: $profileState'); // Debugging line to check the profile state
 
     return Scaffold(
       body: SafeArea(
@@ -35,7 +65,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
                     blurRadius: 15,
                     offset: const Offset(0, 5),
-                  )
+                  ),
                 ],
               ),
               child: Column(
@@ -87,7 +117,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         ],
                       ),
-                      
+
                       // Online Toggle Button
                       GestureDetector(
                         onTap: () {
@@ -108,7 +138,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           );
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: _isOnline
                                 ? AppColors.success.withOpacity(0.1)
@@ -127,7 +160,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 width: 6,
                                 height: 6,
                                 decoration: BoxDecoration(
-                                  color: _isOnline ? AppColors.success : AppColors.danger,
+                                  color: _isOnline
+                                      ? AppColors.success
+                                      : AppColors.danger,
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -137,17 +172,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 style: GoogleFonts.inter(
                                   fontSize: 9,
                                   fontWeight: FontWeight.bold,
-                                  color: _isOnline ? AppColors.success : AppColors.danger,
+                                  color: _isOnline
+                                      ? AppColors.success
+                                      : AppColors.danger,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      )
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Mini stats grid
                   Row(
                     children: [
@@ -155,7 +192,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: isDark ? AppColors.darkBg : AppColors.lightBg,
+                            color: isDark
+                                ? AppColors.darkBg
+                                : AppColors.lightBg,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(color: theme.dividerColor),
                           ),
@@ -196,7 +235,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: isDark ? AppColors.darkBg : AppColors.lightBg,
+                            color: isDark
+                                ? AppColors.darkBg
+                                : AppColors.lightBg,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(color: theme.dividerColor),
                           ),
@@ -290,7 +331,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               color: AppColors.primary.withOpacity(0.15),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
-                            )
+                            ),
                           ],
                         ),
                         child: Column(
@@ -300,7 +341,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: AppColors.primary.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(6),
@@ -348,7 +392,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             const SizedBox(height: 4),
                             Text(
                               'Client Target: Emma Watson • 821 West End Dr',
-                              style: theme.textTheme.bodyMedium?.copyWith(fontSize: 10),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontSize: 10,
+                              ),
                             ),
                             const SizedBox(height: 12),
                             const Divider(height: 1),
@@ -423,7 +469,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                               Text(
                                 '7 Day Curve',
-                                style: theme.textTheme.bodyMedium?.copyWith(fontSize: 9),
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontSize: 9,
+                                ),
                               ),
                             ],
                           ),
@@ -469,11 +517,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   color: AppColors.primary.withOpacity(0.3),
                   blurRadius: 4,
                   offset: const Offset(0, -2),
-                )
+                ),
               ]
             : null,
       ),
     );
   }
 }
-

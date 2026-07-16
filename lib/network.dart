@@ -4,7 +4,7 @@ import 'secureStorage.dart';
 
 // final String host = 'http://13.51.197.245';
 final String host =
-    'https://b0b7-2402-3a80-4142-532a-e2c0-131e-615e-fe72.ngrok-free.app';
+    'https://14df-2409-4088-be81-b9f5-9fc8-e50a-acae-6b3e.ngrok-free.app';
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
