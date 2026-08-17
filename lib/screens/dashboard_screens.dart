@@ -30,7 +30,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             .read(authServiceProvider)
             .getUserProfile()
             .then((response) {
-              ref.read(providerProfileProvider.notifier).state = response.data?['user'];
+              ref.read(providerProfileProvider.notifier).state =
+                  response.data?['user'];
             })
             .catchError((error) {
               print('Error fetching profile: $error');
@@ -44,9 +45,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final Map<String, dynamic>? profileState = ref.watch(providerProfileProvider);
+    final Map<String, dynamic>? profileState = ref.watch(
+      providerProfileProvider,
+    );
 
-    print('Profile State: $profileState'); // Debugging line to check the profile state
+    print(
+      'Profile State: $profileState',
+    ); // Debugging line to check the profile state
 
     return Scaffold(
       body: SafeArea(
@@ -84,7 +89,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ),
                             alignment: Alignment.center,
                             child: Text(
-                              'JH',
+                              '${profileState?['username'] != null && profileState!['username'].isNotEmpty ? profileState['username'][0].toUpperCase() : 'U'}',
                               style: GoogleFonts.poppins(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -106,7 +111,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 ),
                               ),
                               Text(
-                                'John Hanson Professional',
+                                '${profileState?['username'] ?? 'Loading...'}',
                                 style: GoogleFonts.poppins(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,

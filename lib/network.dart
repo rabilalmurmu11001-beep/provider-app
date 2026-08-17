@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'secureStorage.dart';
+import 'router.dart';
 
 // final String host = 'http://13.51.197.245';
 final String host =
@@ -79,7 +80,7 @@ class AuthInterceptor extends Interceptor {
   ) async {
     if (err.response?.statusCode == 401) {
       await _tokenRepository.deleteToken();
-      // Navigation logic would be triggered here via a global navigator key or event bus
+      router.go('/login');
     }
     return super.onError(err, handler);
   }
@@ -101,6 +102,7 @@ class AuthInterceptor extends Interceptor {
     // 3. Handle unauthorized response
     if (response.statusCode == 401) {
       await _tokenRepository.deleteToken();
+      router.go('/login');
     }
 
     // 4. CRITICAL: Always forward the response to the app!
