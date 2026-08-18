@@ -20,6 +20,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _isOtpSelected = false;
   bool _isOtpSent = false;
   bool _isLoading = false;
+  bool _obscurePassword = true;
   int _countdown = 0;
   Timer? _timer;
 
@@ -672,10 +673,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const SizedBox(height: 6),
                   TextField(
                     controller: _passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
+                    obscureText: _obscurePassword,
+                    decoration: InputDecoration(
                       hintText: '••••••••••••••',
                       floatingLabelBehavior: FloatingLabelBehavior.never,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          size: 18,
+                          color: theme.textTheme.bodyMedium?.color,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                      ),
                     ),
                     style: const TextStyle(fontSize: 13),
                   ),

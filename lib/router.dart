@@ -44,7 +44,17 @@ final GoRouter router = GoRouter(
         ),
         GoRoute(
           path: '/bookings/detail',
-          builder: (context, state) => const BookingDetailScreen(),
+          builder: (context, state) {
+            final id = state.uri.queryParameters['id'] ??
+                (state.extra is String ? state.extra as String : null);
+            final data = state.extra is Map<String, dynamic>
+                ? state.extra as Map<String, dynamic>
+                : null;
+            return BookingDetailScreen(
+              bookingId: id,
+              initialBookingData: data,
+            );
+          },
         ),
         GoRoute(path: '/chat', builder: (context, state) => const ChatScreen()),
         GoRoute(

@@ -68,10 +68,16 @@ class AppTheme {
           fontWeight: FontWeight.bold,
         ),
       ),
+      hintColor: AppColors.lightTextSecondary,
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.lightCard,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        hintStyle: GoogleFonts.inter(
+          color: AppColors.lightTextSecondary,
+          fontSize: 13,
+          fontWeight: FontWeight.normal,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.lightBorder),
@@ -127,10 +133,16 @@ class AppTheme {
           fontWeight: FontWeight.bold,
         ),
       ),
+      hintColor: AppColors.darkTextSecondary,
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.darkCard,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        hintStyle: GoogleFonts.inter(
+          color: AppColors.darkTextSecondary,
+          fontSize: 13,
+          fontWeight: FontWeight.normal,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.darkBorder),
