@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'secureStorage.dart';
 import 'router.dart';
 
-// final String host = 'http://13.51.197.245';
-final String host = 'http://172.27.239.96:4000';
+final String host = 'http://13.51.197.245:7000';
+// final String host = 'http://10.118.28.96:7000';
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(

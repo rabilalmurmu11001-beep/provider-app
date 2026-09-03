@@ -122,6 +122,19 @@ class AuthService {
     }
   }
 
+  /// Update user profile with arbitrary allowed fields (username, mobile, gender, age, photo, address)
+  Future<Response> updateUserProfile(Map<String, dynamic> updatedData) async {
+    try {
+      Response<dynamic> result = await _dio.patch(
+        "/users/update/me?r=provider",
+        data: updatedData,
+      );
+      return result;
+    } catch (err) {
+      rethrow;
+    }
+  }
+
   /// Send password reset email
   Future<Response> resetPassword(String email) async {
     try {

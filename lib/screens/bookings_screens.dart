@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -159,17 +160,21 @@ class _BookingsScreenState extends ConsumerState<BookingsScreen> {
               child: RefreshIndicator(
                 onRefresh: () async {
                   if (_activeTab == 'available') {
-                    await ref.refresh(availableBookingsProvider.future);
+                    ref.invalidate(availableBookingsProvider);
+                    await ref.read(availableBookingsProvider.future);
                   } else if (_activeTab == 'upcoming') {
-                    await ref.refresh(
+                    ref.invalidate(providerAssignedBookingsProvider('accepted'));
+                    await ref.read(
                       providerAssignedBookingsProvider('accepted').future,
                     );
                   } else if (_activeTab == 'active') {
-                    await ref.refresh(
+                    ref.invalidate(providerAssignedBookingsProvider('in_progress'));
+                    await ref.read(
                       providerAssignedBookingsProvider('in_progress').future,
                     );
                   } else {
-                    await ref.refresh(
+                    ref.invalidate(providerAssignedBookingsProvider('completed'));
+                    await ref.read(
                       providerAssignedBookingsProvider('completed').future,
                     );
                   }
@@ -234,7 +239,7 @@ class _BookingsScreenState extends ConsumerState<BookingsScreen> {
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.primary),
         ),
-        error: (err, stack) => _buildErrorState(err.toString(), () {
+        error: (err, stack) => _buildErrorState(_formatError(err), () {
           ref.invalidate(availableBookingsProvider);
         }),
       );
@@ -247,7 +252,7 @@ class _BookingsScreenState extends ConsumerState<BookingsScreen> {
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.primary),
         ),
-        error: (err, stack) => _buildErrorState(err.toString(), () {
+        error: (err, stack) => _buildErrorState(_formatError(err), () {
           ref.invalidate(providerAssignedBookingsProvider('accepted'));
         }),
       );
@@ -260,7 +265,7 @@ class _BookingsScreenState extends ConsumerState<BookingsScreen> {
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.primary),
         ),
-        error: (err, stack) => _buildErrorState(err.toString(), () {
+        error: (err, stack) => _buildErrorState(_formatError(err), () {
           ref.invalidate(providerAssignedBookingsProvider('in_progress'));
         }),
       );
@@ -273,7 +278,7 @@ class _BookingsScreenState extends ConsumerState<BookingsScreen> {
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.primary),
         ),
-        error: (err, stack) => _buildErrorState(err.toString(), () {
+        error: (err, stack) => _buildErrorState(_formatError(err), () {
           ref.invalidate(providerAssignedBookingsProvider('completed'));
         }),
       );
@@ -333,7 +338,7 @@ class _BookingsScreenState extends ConsumerState<BookingsScreen> {
     return ListView.separated(
       padding: const EdgeInsets.all(20.0),
       itemCount: items.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 16),
+      separatorBuilder: (_, _) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
         final item = items[index];
         final booking = item['booking'] as Map<String, dynamic>? ?? {};
@@ -555,6 +560,19 @@ class _BookingsScreenState extends ConsumerState<BookingsScreen> {
         );
       },
     );
+  }
+
+  String _formatError(dynamic err) {
+    if (err is DioException) {
+      if (err.response?.statusCode == 403) {
+        return 'Access restricted: Your account must be registered as a Service Provider. Please ensure your account has the Service Provider role.';
+      }
+      final data = err.response?.data;
+      if (data is Map<String, dynamic> && data['message'] != null) {
+        return data['message'].toString();
+      }
+    }
+    return err.toString();
   }
 
   Widget _buildErrorState(String errorMsg, VoidCallback onRetry) {
