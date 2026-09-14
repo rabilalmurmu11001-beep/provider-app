@@ -623,7 +623,16 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                             ),
                           ),
                           ElevatedButton(
-                            onPressed: () => context.go('/chat'),
+                            onPressed: () => context.push(
+                              '/chat',
+                              extra: {
+                                'roomId': bookingId,
+                                'recipientName': customerName,
+                                'recipientPhoto': customer['photo']?.toString(),
+                                'recipientId': customer['id']?.toString(),
+                                'bookingId': bookingId,
+                              },
+                            ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,

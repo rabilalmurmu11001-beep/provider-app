@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:dio/dio.dart';
 import '../../theme.dart';
 import '../../services/authServices.dart';
+import '../../services/socketService.dart';
 import '../../secureStorage.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -224,6 +225,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         final token = _extractToken(result);
         if (token != null) {
           await TokenRepository().persistToken(token);
+          SocketService.instance.connect(token);
           if (mounted) {
             _showSuccessSnackBar('Authenticated successfully!');
             context.go('/dashboard');
@@ -264,6 +266,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         final token = _extractToken(result);
         if (token != null) {
           await TokenRepository().persistToken(token);
+          SocketService.instance.connect(token);
           if (mounted) {
             _showSuccessSnackBar('Authenticated successfully!');
             context.go('/dashboard');

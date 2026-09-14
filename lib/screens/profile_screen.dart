@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/authServices.dart';
+import '../services/socketService.dart';
 import '../stores/bookingProviders.dart';
 import '../stores/providers.dart';
 import '../theme.dart';
@@ -1183,6 +1184,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 .read(authServiceProvider)
                                 .logout();
                             if (success && context.mounted) {
+                              SocketService.instance.disconnect();
                               ref.read(providerProfileProvider.notifier).state =
                                   null;
                               context.go('/login');

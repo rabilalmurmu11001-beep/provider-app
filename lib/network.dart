@@ -1,10 +1,14 @@
+import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'secureStorage.dart';
 import 'router.dart';
 
-final String host = 'http://13.51.197.245:7000';
+// final String host = 'https://13.51.197.245:7000';
 // final String host = 'http://10.118.28.96:7000';
+final String host = 'https://192.168.31.13:7000';
+// final String host = 'https://10.166.62.96:7000';
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
@@ -17,6 +21,16 @@ final dioProvider = Provider<Dio>((ref) {
         'Accept': 'application/json',
       },
     ),
+  );
+
+  // Allow self-signed and IP-mismatched SSL certificates for development
+  dio.httpClientAdapter = IOHttpClientAdapter(
+    createHttpClient: () {
+      final client = HttpClient();
+      client.badCertificateCallback =
+          (X509Certificate cert, String host, int port) => true;
+      return client;
+    },
   );
 
   final tokenRepository = TokenRepository();

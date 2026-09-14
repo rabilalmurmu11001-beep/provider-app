@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../theme.dart';
 import '../../secureStorage.dart';
 
+import '../../services/socketService.dart';
+
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -32,6 +34,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     try {
       final token = await TokenRepository().readToken();
       if (token != null && token.isNotEmpty) {
+        SocketService.instance.connect(token);
         if (mounted) {
           context.go('/dashboard');
         }
