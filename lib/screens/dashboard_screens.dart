@@ -167,68 +167,98 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ],
                           ),
 
-                          // Online Toggle Button
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _isOnline = !_isOnline;
-                              });
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    _isOnline
-                                        ? '🟢 Operations Status: ONLINE'
-                                        : '🔴 Operations Status: OFFLINE',
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                  duration: const Duration(seconds: 2),
-                                  behavior: SnackBarBehavior.floating,
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Chat Messages Quick Action
+                              IconButton(
+                                onPressed: () => context.push('/chat'),
+                                icon: const Icon(
+                                  Icons.chat_bubble_outline_rounded,
+                                  size: 18,
+                                  color: AppColors.primary,
                                 ),
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _isOnline
-                                    ? AppColors.success.withValues(alpha: 0.1)
-                                    : AppColors.danger.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: _isOnline
-                                      ? AppColors.success.withValues(alpha: 0.3)
-                                      : AppColors.danger.withValues(alpha: 0.3),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    width: 6,
-                                    height: 6,
-                                    decoration: BoxDecoration(
-                                      color: _isOnline
-                                          ? AppColors.success
-                                          : AppColors.danger,
-                                      shape: BoxShape.circle,
+                                tooltip: 'Client Messages',
+                                style: IconButton.styleFrom(
+                                  backgroundColor:
+                                      AppColors.primary.withValues(alpha: 0.1),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: BorderSide(
+                                      color: AppColors.primary
+                                          .withValues(alpha: 0.2),
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    _isOnline ? 'ONLINE' : 'OFFLINE',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
+                                  padding: const EdgeInsets.all(8),
+                                  minimumSize: const Size(36, 36),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+
+                              // Online Toggle Button
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _isOnline = !_isOnline;
+                                  });
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        _isOnline
+                                            ? '🟢 Operations Status: ONLINE'
+                                            : '🔴 Operations Status: OFFLINE',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                      duration: const Duration(seconds: 2),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _isOnline
+                                        ? AppColors.success.withValues(alpha: 0.1)
+                                        : AppColors.danger.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
                                       color: _isOnline
-                                          ? AppColors.success
-                                          : AppColors.danger,
+                                          ? AppColors.success.withValues(alpha: 0.3)
+                                          : AppColors.danger.withValues(alpha: 0.3),
                                     ),
                                   ),
-                                ],
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 6,
+                                        height: 6,
+                                        decoration: BoxDecoration(
+                                          color: _isOnline
+                                              ? AppColors.success
+                                              : AppColors.danger,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        _isOnline ? 'ONLINE' : 'OFFLINE',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: _isOnline
+                                              ? AppColors.success
+                                              : AppColors.danger,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                         ],
                       ),

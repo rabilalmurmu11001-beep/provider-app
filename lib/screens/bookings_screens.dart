@@ -554,6 +554,78 @@ class _BookingsScreenState extends ConsumerState<BookingsScreen> {
                     ),
                   ),
                 ],
+
+                // Action buttons for assigned bookings (Chat & View Details)
+                if (!isAvailable) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            context.push(
+                              '/chat',
+                              extra: {
+                                'roomId': bookingId,
+                                'recipientName': customerName,
+                                'recipientPhoto':
+                                    customer['photo']?.toString(),
+                                'recipientId': customer['id']?.toString(),
+                                'bookingId': bookingId,
+                              },
+                            );
+                          },
+                          icon: const Icon(
+                            Icons.chat_bubble_outline_rounded,
+                            size: 13,
+                          ),
+                          label: const Text(
+                            'Chat Client',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(color: AppColors.primary),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            context.go('/bookings/detail', extra: item);
+                          },
+                          icon: const Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 13,
+                          ),
+                          label: const Text(
+                            'Details',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

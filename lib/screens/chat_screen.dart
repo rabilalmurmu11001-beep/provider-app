@@ -66,9 +66,10 @@ class ChatMessage {
       parsedDate = DateTime.now();
     }
 
-    final sender = json['sender'] is Map<String, dynamic>
-        ? json['sender'] as Map<String, dynamic>
-        : null;
+    Map<String, dynamic>? sender;
+    if (json['sender'] is Map) {
+      sender = Map<String, dynamic>.from(json['sender'] as Map);
+    }
 
     return ChatMessage(
       id: json['id']?.toString() ?? '',
@@ -164,6 +165,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _setupSocket();
     } else {
       await _loadConversations();
+      _setupGlobalSocketListener();
     }
   }
 
@@ -195,8 +197,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // 3. Fallback: Fetch from API
     try {
       final res = await ref.read(authServiceProvider).getUserProfile();
-      if (res.data is Map<String, dynamic> && res.data['user'] != null) {
-        final user = res.data['user'] as Map<String, dynamic>;
+      if (res.data is Map && res.data['user'] != null) {
+        final user = Map<String, dynamic>.from(res.data['user'] as Map);
         _currentUserId = user['id']?.toString();
         ref.read(providerProfileProvider.notifier).state = user;
       }
@@ -207,9 +209,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     setState(() => _isLoadingConversations = true);
     try {
       final res = await ref.read(messageServiceProvider).getConversations();
-      if (res.data is Map<String, dynamic>) {
-        final list = (res.data['conversations'] as List? ?? [])
-            .map((c) => c as Map<String, dynamic>)
+      if (res.data is Map && res.data['conversations'] is List) {
+        final rawList = res.data['conversations'] as List;
+        final list = rawList
+            .map((c) => Map<String, dynamic>.from(c as Map))
             .toList();
         if (mounted) {
           setState(() {
@@ -240,10 +243,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             limit: 100,
           );
 
-      if (res.data is Map<String, dynamic>) {
-        final rawList = res.data['messages'] as List? ?? [];
+      if (res.data is Map && res.data['messages'] is List) {
+        final rawList = res.data['messages'] as List;
         final parsed = rawList
-            .map((item) => ChatMessage.fromJson(item as Map<String, dynamic>))
+            .map((item) =>
+                ChatMessage.fromJson(Map<String, dynamic>.from(item as Map)))
             .toList();
 
         if (mounted) {
@@ -263,8 +267,40 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  void _setupGlobalSocketListener() {
+    final socketService = ref.read(socketServiceProvider);
+
+    if (!socketService.isConnected) {
+      socketService.connect();
+    }
+
+    // When on conversation list, auto-refresh if new message arrives
+    if (_onMessageReceived != null) {
+      socketService.offMessage(_onMessageReceived);
+      _onMessageReceived = null;
+    }
+
+    _onMessageReceived = (data) {
+      if (!mounted) return;
+      if (data is Map) {
+        _loadConversations();
+      }
+    };
+    socketService.onMessage(_onMessageReceived!);
+  }
+
   void _setupSocket() {
     final socketService = ref.read(socketServiceProvider);
+
+    // Clean up previous listeners to prevent duplicate events
+    if (_onMessageReceived != null) {
+      socketService.offMessage(_onMessageReceived);
+      _onMessageReceived = null;
+    }
+    if (_onMessagesRead != null) {
+      socketService.offMessagesRead(_onMessagesRead);
+      _onMessagesRead = null;
+    }
 
     if (!socketService.isConnected) {
       socketService.connect().then((_) {
@@ -280,8 +316,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _onMessageReceived = (data) {
       if (!mounted) return;
 
-      if (data is Map<String, dynamic>) {
-        final incoming = ChatMessage.fromJson(data);
+      if (data is Map) {
+        final mapData = Map<String, dynamic>.from(data);
+        final incoming = ChatMessage.fromJson(mapData);
 
         // Filter messages for other rooms
         if (incoming.roomId.isNotEmpty && incoming.roomId != _activeRoomId) {
@@ -311,6 +348,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         if (incoming.senderId != _currentUserId && _activeRoomId.isNotEmpty) {
           ref.read(messageServiceProvider).markRoomAsRead(_activeRoomId);
         }
+      } else if (data is String) {
+        debugPrint('[ChatScreen] System notice: $data');
       }
     };
 
@@ -319,14 +358,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // Real-time read receipts listener
     _onMessagesRead = (data) {
       if (!mounted) return;
-      if (data is Map<String, dynamic> && data['roomId'] == _activeRoomId) {
-        setState(() {
-          for (int i = 0; i < _messages.length; i++) {
-            if (_messages[i].senderId == _currentUserId) {
-              _messages[i] = _messages[i].copyWith(messageStatus: 'read');
+      if (data is Map) {
+        final mapData = Map<String, dynamic>.from(data);
+        if (mapData['roomId'] == _activeRoomId) {
+          setState(() {
+            for (int i = 0; i < _messages.length; i++) {
+              if (_messages[i].senderId == _currentUserId) {
+                _messages[i] = _messages[i].copyWith(messageStatus: 'read');
+              }
             }
-          }
-        });
+          });
+        }
       }
     };
 
@@ -384,9 +426,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               roomId: _activeRoomId,
               messageContent: text,
             );
-        if (res.data is Map<String, dynamic> && res.data['message'] != null) {
+        if (res.data is Map && res.data['message'] != null) {
           final serverMsg = ChatMessage.fromJson(
-            res.data['message'] as Map<String, dynamic>,
+            Map<String, dynamic>.from(res.data['message'] as Map),
           );
           if (mounted) {
             setState(() {
@@ -411,17 +453,85 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  Future<void> _retryMessage(ChatMessage msg) async {
+    setState(() {
+      final idx = _messages.indexWhere((m) => m.id == msg.id);
+      if (idx >= 0) {
+        _messages[idx] = _messages[idx].copyWith(messageStatus: 'sending');
+      }
+    });
+
+    final socketService = ref.read(socketServiceProvider);
+    if (socketService.isConnected) {
+      socketService.sendMessageToRoom(
+        roomId: _activeRoomId,
+        message: msg.messageContent,
+        messageType: msg.messageType,
+      );
+    } else {
+      try {
+        final res = await ref.read(messageServiceProvider).sendMessage(
+              roomId: _activeRoomId,
+              messageContent: msg.messageContent,
+              messageType: msg.messageType,
+            );
+        if (res.data is Map && res.data['message'] != null) {
+          final serverMsg = ChatMessage.fromJson(
+            Map<String, dynamic>.from(res.data['message'] as Map),
+          );
+          if (mounted) {
+            setState(() {
+              final idx = _messages.indexWhere((m) => m.id == msg.id);
+              if (idx >= 0) {
+                _messages[idx] = serverMsg;
+              }
+            });
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            final idx = _messages.indexWhere((m) => m.id == msg.id);
+            if (idx >= 0) {
+              _messages[idx] = _messages[idx].copyWith(messageStatus: 'failed');
+            }
+          });
+        }
+      }
+    }
+  }
+
   void _selectConversation(Map<String, dynamic> conv) {
     final roomId = conv['roomId']?.toString() ?? '';
-    final lastMsg = conv['lastMessage'] as Map<String, dynamic>?;
-    final sender = lastMsg?['sender'] as Map<String, dynamic>?;
-    final name = sender?['username']?.toString() ?? 'Customer';
-    final photo = sender?['photo']?.toString();
+    final recipient = conv['recipient'] is Map
+        ? Map<String, dynamic>.from(conv['recipient'] as Map)
+        : null;
+    final lastMsg = conv['lastMessage'] is Map
+        ? Map<String, dynamic>.from(conv['lastMessage'] as Map)
+        : null;
+    final sender = lastMsg?['sender'] is Map
+        ? Map<String, dynamic>.from(lastMsg!['sender'] as Map)
+        : null;
+
+    final name = recipient?['username']?.toString() ??
+        (sender != null && sender['id']?.toString() != _currentUserId
+            ? sender['username']?.toString()
+            : null) ??
+        'Client';
+    final photo = recipient?['photo']?.toString() ??
+        (sender != null && sender['id']?.toString() != _currentUserId
+            ? sender['photo']?.toString()
+            : null);
+
+    if (_activeRoomId.isNotEmpty && _activeRoomId != roomId) {
+      ref.read(socketServiceProvider).leaveRoom(_activeRoomId);
+    }
 
     setState(() {
       _activeRoomId = roomId;
       _activeRecipientName = name;
       _activeRecipientPhoto = photo;
+      _messages = [];
     });
 
     _loadMessages();
@@ -461,8 +571,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return parts[0].substring(0, parts[0].length >= 2 ? 2 : 1).toUpperCase();
   }
 
-  Widget _buildStatusIcon(String status) {
-    switch (status) {
+  Widget _buildStatusIcon(ChatMessage msg) {
+    switch (msg.messageStatus) {
       case 'sending':
         return const Icon(
           Icons.access_time_rounded,
@@ -488,10 +598,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           color: Colors.lightBlueAccent,
         );
       case 'failed':
-        return const Icon(
-          Icons.error_outline_rounded,
-          size: 12,
-          color: Colors.redAccent,
+        return GestureDetector(
+          onTap: () => _retryMessage(msg),
+          child: const Icon(
+            Icons.error_outline_rounded,
+            size: 13,
+            color: Colors.redAccent,
+          ),
         );
       default:
         return const SizedBox.shrink();
@@ -607,14 +720,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         Divider(height: 1, color: theme.dividerColor),
                     itemBuilder: (context, index) {
                       final conv = _conversations[index];
-                      final lastMsg =
-                          conv['lastMessage'] as Map<String, dynamic>?;
-                      final sender =
-                          lastMsg?['sender'] as Map<String, dynamic>?;
-                      final clientName =
-                          sender?['username']?.toString() ?? 'Client';
-                      final text =
+                      final recipient = conv['recipient'] is Map
+                          ? Map<String, dynamic>.from(conv['recipient'] as Map)
+                          : null;
+                      final lastMsg = conv['lastMessage'] is Map
+                          ? Map<String, dynamic>.from(conv['lastMessage'] as Map)
+                          : null;
+                      final sender = lastMsg?['sender'] is Map
+                          ? Map<String, dynamic>.from(lastMsg!['sender'] as Map)
+                          : null;
+
+                      final clientName = recipient?['username']?.toString() ??
+                          (sender != null &&
+                                  sender['id']?.toString() != _currentUserId
+                              ? sender['username']?.toString()
+                              : null) ??
+                          'Client';
+
+                      final clientPhoto = recipient?['photo']?.toString() ??
+                          (sender != null &&
+                                  sender['id']?.toString() != _currentUserId
+                              ? sender['photo']?.toString()
+                              : null);
+
+                      final serviceName = conv['serviceName']?.toString();
+                      final lastMsgSenderId = lastMsg?['senderId']?.toString();
+                      final isMyLastMsg = _currentUserId != null &&
+                          lastMsgSenderId == _currentUserId;
+                      final rawContent =
                           lastMsg?['messageContent']?.toString() ?? '';
+                      final previewText = isMyLastMsg
+                          ? 'You: $rawContent'
+                          : rawContent;
                       final unreadCount =
                           (conv['unreadCount'] as num?)?.toInt() ?? 0;
                       final timeStr = lastMsg?['createdAt'] != null
@@ -632,28 +769,66 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           radius: 20,
                           backgroundColor:
                               AppColors.primary.withValues(alpha: 0.1),
-                          child: Text(
-                            _getInitials(clientName),
-                            style: const TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
+                          backgroundImage: clientPhoto != null &&
+                                  clientPhoto.isNotEmpty
+                              ? NetworkImage(clientPhoto)
+                              : null,
+                          child: clientPhoto == null || clientPhoto.isEmpty
+                              ? Text(
+                                  _getInitials(clientName),
+                                  style: const TextStyle(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                )
+                              : null,
                         ),
                         title: Row(
                           children: [
                             Expanded(
-                              child: Text(
-                                clientName,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              child: Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      clientName,
+                                      style: theme.textTheme.titleMedium?.copyWith(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (serviceName != null &&
+                                      serviceName.isNotEmpty) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 1.5,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary
+                                            .withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        serviceName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: AppColors.primary,
+                                          fontSize: 8.5,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
+                            const SizedBox(width: 4),
                             Text(
                               timeStr,
                               style: theme.textTheme.bodyMedium?.copyWith(
@@ -666,7 +841,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           children: [
                             Expanded(
                               child: Text(
-                                text,
+                                previewText,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -729,7 +904,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 children: [
                   IconButton(
                     onPressed: () {
-                      // If opened with initial roomId, pop back to caller screen
+                      // If opened with initial roomId from external screen, pop back
                       if (widget.roomId.isNotEmpty) {
                         if (context.canPop()) {
                           context.pop();
@@ -738,10 +913,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         }
                       } else {
                         // Switch back to conversation list
+                        final s = ref.read(socketServiceProvider);
+                        if (_activeRoomId.isNotEmpty) {
+                          s.leaveRoom(_activeRoomId);
+                        }
                         setState(() {
                           _activeRoomId = '';
                         });
                         _loadConversations();
+                        _setupGlobalSocketListener();
                       }
                     },
                     icon: const Icon(Icons.arrow_back_ios_new, size: 16),
@@ -895,6 +1075,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         )
                       : ListView.builder(
                           controller: _scrollController,
+                          physics: const BouncingScrollPhysics(),
                           padding: const EdgeInsets.all(16),
                           itemCount: _messages.length,
                           itemBuilder: (context, index) {
@@ -965,7 +1146,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                           _formatTime(msg.createdAt),
                                           style: TextStyle(
                                             color: isProvider
-                                                ? Colors.white.withValues(alpha: 0.65)
+                                                ? Colors.white
+                                                    .withValues(alpha: 0.65)
                                                 : theme
                                                     .textTheme.bodyMedium?.color
                                                     ?.withValues(alpha: 0.65),
@@ -974,7 +1156,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                         ),
                                         if (isProvider) ...[
                                           const SizedBox(width: 4),
-                                          _buildStatusIcon(msg.messageStatus),
+                                          _buildStatusIcon(msg),
                                         ],
                                       ],
                                     ),

@@ -59,7 +59,9 @@ final GoRouter router = GoRouter(
         GoRoute(
           path: '/chat',
           builder: (context, state) {
-            final extra = state.extra as Map<String, dynamic>?;
+            final extra = state.extra is Map
+                ? Map<String, dynamic>.from(state.extra as Map)
+                : null;
             final roomId = state.uri.queryParameters['roomId'] ??
                 extra?['roomId']?.toString() ??
                 extra?['bookingId']?.toString() ??

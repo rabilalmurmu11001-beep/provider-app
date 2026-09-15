@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:dio/dio.dart';
 import '../../theme.dart';
 import '../../services/authServices.dart';
+import '../../services/socketService.dart';
 import '../../secureStorage.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
@@ -167,6 +168,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       final token = _extractToken(result);
       if (token != null) {
         await TokenRepository().persistToken(token);
+        SocketService.instance.connect(token);
         if (mounted) {
           _showSuccessSnackBar('Profile created and authenticated successfully!');
           context.go('/dashboard');
