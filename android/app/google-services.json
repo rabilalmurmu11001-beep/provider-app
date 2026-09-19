@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "709570383359",
+    "project_id": "marketplace-push-notific-4371c",
+    "storage_bucket": "marketplace-push-notific-4371c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:709570383359:android:8b26bd0b01d7a7c3ce6bca",
+        "android_client_info": {
+          "package_name": "com.example.customer_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAg-ZgpfFWNHyflBRfzFnN7b34wNn0K8sM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:709570383359:android:6ee2405f948d3e96ce6bca",
+        "android_client_info": {
+          "package_name": "com.example.provider_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAg-ZgpfFWNHyflBRfzFnN7b34wNn0K8sM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

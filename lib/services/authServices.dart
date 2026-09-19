@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider_app/network.dart';
 import 'package:provider_app/secureStorage.dart';
+import 'package:provider_app/services/notification_service.dart';
 
 /// A template for creating services that use the Dio instance.
 final authServiceProvider = Provider<AuthService>((ref) {
@@ -151,7 +152,7 @@ class AuthService {
   Future<bool> logout() async {
     try {
       final tokenRepository = TokenRepository();
-
+      await NotificationService.instance.deleteTokenFromBackend();
       await tokenRepository.deleteToken();
       return true;
     } catch (err) {

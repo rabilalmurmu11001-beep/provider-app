@@ -18,4 +18,17 @@ class TokenRepository {
   Future<void> deleteToken() async {
     await _storage.delete(key: _tokenKey);
   }
+
+  static const _fcmTokenKey = 'fcm_token';
+
+  // Save FCM device token
+  Future<void> persistFcmToken(String token) async {
+    await _storage.write(key: _fcmTokenKey, value: token);
+  }
+
+  // Read FCM device token
+  Future<String?> readFcmToken() async {
+    return await _storage.read(key: _fcmTokenKey);
+  }
 }
+
