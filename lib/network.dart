@@ -5,10 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'secureStorage.dart';
 import 'router.dart';
 
-// final String host = 'https://13.51.197.245:7000';
-// final String host = 'http://10.118.28.96:7000';
-final String host = 'https://192.168.31.13:7000';
-// final String host = 'https://10.166.62.96:7000';
+// Local backend development host for the same machine / desktop environment.
+// For Android emulator use: http://10.0.2.2:7000
+// For a phone on the same Wi‑Fi use the actual LAN IP, e.g. http://192.168.0.104:7000
+final String host = 'http://127.0.0.1:7000';
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(

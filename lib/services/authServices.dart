@@ -14,6 +14,12 @@ class AuthService {
 
   AuthService(this._dio);
 
+  String _normalizeProviderMobile(String mobile) {
+    final normalized = mobile.trim().replaceAll(RegExp(r'[\s()-]'), '');
+    if (normalized.startsWith('+')) return normalized;
+    return '+91$normalized';
+  }
+
   Future<Response> emaillogin(String username, String password) async {
     try {
       Response<dynamic> result = await _dio.post(
@@ -58,6 +64,67 @@ class AuthService {
       );
 
       return result;
+    } catch (err) {
+      rethrow;
+    }
+  }
+
+  Future<Response> requestProviderOtp(String mobile) async {
+    try {
+      return await _dio.post(
+        "/mobile-auth/provider/register/request-otp",
+        data: {"mobile": _normalizeProviderMobile(mobile)},
+      );
+    } catch (err) {
+      rethrow;
+    }
+  }
+
+  Future<Response> verifyProviderOtp(String mobile, String otp) async {
+    try {
+      return await _dio.post(
+        "/mobile-auth/provider/register/verify-otp",
+        data: {"mobile": _normalizeProviderMobile(mobile), "otp": otp},
+      );
+    } catch (err) {
+      rethrow;
+    }
+  }
+
+  Future<Response> registerProvider({
+    required String verificationToken,
+    required String username,
+    required String email,
+    required String password,
+    required String gender,
+    required String title,
+    required String houseNumber,
+    required String streetNoOrName,
+    required String city,
+    required String state,
+    required String pinCode,
+    required String country,
+    required String description,
+  }) async {
+    try {
+      return await _dio.post(
+        "/mobile-auth/provider/register/complete",
+        data: {
+          "verificationToken": verificationToken,
+          "username": username,
+          "email": email,
+          "password": password,
+          "gender": gender,
+          "title": title,
+          "house_number": houseNumber,
+          "street_no_or_name": streetNoOrName,
+          "city": city,
+          "state": state,
+          "pin_code": pinCode,
+          "country": country,
+          "description": description,
+        },
+      );
     } catch (err) {
       rethrow;
     }

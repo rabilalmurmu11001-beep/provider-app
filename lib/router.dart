@@ -1,7 +1,7 @@
 import 'package:go_router/go_router.dart';
 import 'package:provider_app/screens/addservice_screen.dart';
 import 'package:provider_app/screens/auth/onboarding_screen.dart';
-import 'package:provider_app/screens/auth/signup_screen.dart';
+import 'package:provider_app/screens/auth/provider_registration_screen.dart';
 import 'package:provider_app/screens/auth/splash_screen.dart';
 import 'package:provider_app/screens/bookingDetails_screen.dart';
 import 'package:provider_app/screens/chat_screen.dart';
@@ -32,7 +32,7 @@ final GoRouter router = GoRouter(
         ),
         GoRoute(
           path: '/signup',
-          builder: (context, state) => const SignupScreen(),
+          builder: (context, state) => const ProviderRegistrationScreen(),
         ),
         GoRoute(
           path: '/dashboard',
