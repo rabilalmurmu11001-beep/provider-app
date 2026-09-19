@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider_app/services/authServices.dart';
+import 'package:provider_app/services/notification_service.dart';
 import 'package:provider_app/stores/bookingProviders.dart';
 import 'package:provider_app/stores/providers.dart';
 import '../theme.dart';
@@ -20,8 +21,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    // Fetch the provider profile when the widget is initialized
+    // Fetch the provider profile and notifications when the widget is initialized
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.instance.refreshUnreadCount();
       final Map<String, dynamic>? profileState = ref.read(
         providerProfileProvider,
       );
@@ -89,6 +91,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ref.invalidate(providerAssignedBookingsProvider('in_progress'));
             ref.invalidate(providerAssignedBookingsProvider('accepted'));
             ref.invalidate(providerAssignedBookingsProvider('completed'));
+            await NotificationService.instance.refreshUnreadCount();
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -192,6 +195,80 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   padding: const EdgeInsets.all(8),
                                   minimumSize: const Size(36, 36),
                                 ),
+                              ),
+                              const SizedBox(width: 8),
+
+                              // Notification Center Quick Action with Badge
+                              ValueListenableBuilder<int>(
+                                valueListenable: NotificationService
+                                    .instance.unreadCountNotifier,
+                                builder: (context, unreadCount, _) {
+                                  return Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      IconButton(
+                                        onPressed: () =>
+                                            context.push('/notifications'),
+                                        icon: const Icon(
+                                          Icons.notifications_outlined,
+                                          size: 18,
+                                          color: AppColors.primary,
+                                        ),
+                                        tooltip: 'Notification Center',
+                                        style: IconButton.styleFrom(
+                                          backgroundColor: AppColors.primary
+                                              .withValues(alpha: 0.1),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            side: BorderSide(
+                                              color: AppColors.primary
+                                                  .withValues(alpha: 0.2),
+                                            ),
+                                          ),
+                                          padding: const EdgeInsets.all(8),
+                                          minimumSize: const Size(36, 36),
+                                        ),
+                                      ),
+                                      if (unreadCount > 0)
+                                        Positioned(
+                                          top: -2,
+                                          right: -2,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 4,
+                                              vertical: 1,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.danger,
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              border: Border.all(
+                                                color: theme.cardColor,
+                                                width: 1.5,
+                                              ),
+                                            ),
+                                            constraints: const BoxConstraints(
+                                              minWidth: 16,
+                                              minHeight: 16,
+                                            ),
+                                            alignment: Alignment.center,
+                                            child: Text(
+                                              unreadCount > 9
+                                                  ? '9+'
+                                                  : '$unreadCount',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 8.5,
+                                                fontWeight: FontWeight.bold,
+                                                height: 1,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  );
+                                },
                               ),
                               const SizedBox(width: 8),
 

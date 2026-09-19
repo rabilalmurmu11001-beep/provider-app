@@ -11,6 +11,7 @@ import 'screens/auth/signin_screen.dart';
 import 'screens/dashboard_screens.dart';
 import 'screens/bookings_screens.dart';
 import 'screens/catalog_screens.dart';
+import 'screens/notifications_screen.dart';
 import 'widgets/console_shell.dart';
 
 final GoRouter router = GoRouter(
@@ -95,6 +96,10 @@ final GoRouter router = GoRouter(
         GoRoute(
           path: '/profile',
           builder: (context, state) => const ProfileScreen(),
+        ),
+        GoRoute(
+          path: '/notifications',
+          builder: (context, state) => const NotificationsScreen(),
         ),
       ],
     ),

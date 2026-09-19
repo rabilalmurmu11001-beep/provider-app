@@ -55,6 +55,11 @@ class ResponsiveConsoleShell extends StatelessWidget {
           'title': '12. Live Client Terminal',
           'desc': 'Integrated operational communication interface showcasing real-time location tags and responsive canned macro responses.',
         };
+      case '/notifications':
+        return {
+          'title': '13. Dispatch Notification Center',
+          'desc': 'Unified provider notification stream aggregating dispatch orders, active client alerts, payment confirmations, and system notices.',
+        };
       case '/services':
         return {
           'title': '17. Catalog Directory',
@@ -271,6 +276,7 @@ class ResponsiveConsoleShell extends StatelessWidget {
                 _buildSidebarItem(context, '18. Job Dispatch Control', '/bookings', currentPath, '2 Live'),
                 _buildSidebarItem(context, '18b. Job Manifest Specs', '/bookings/detail', currentPath, 'Specs'),
                 _buildSidebarItem(context, '12. Live Client Thread Chat', '/chat', currentPath, 'Live'),
+                _buildSidebarItem(context, '13. Dispatch Notification Center', '/notifications', currentPath, 'Alerts'),
                 _buildSidebarItem(context, '17. Managed Service Catalog', '/services', currentPath, 'Directory'),
                 _buildSidebarItem(context, '16. Offer Catalog Creator', '/services/add', currentPath, 'Form'),
                 _buildSidebarItem(context, '19. Financial Deposit Ledger', '/earnings', currentPath, 'Ledger'),
@@ -743,6 +749,9 @@ class ResponsiveConsoleShell extends StatelessWidget {
     } else if (badgeText == '2 Live' || badgeText == 'Live') {
       badgeBg = AppColors.primary.withOpacity(0.1);
       badgeTextCol = AppColors.primary;
+    } else if (badgeText == 'Alerts') {
+      badgeBg = AppColors.secondary.withOpacity(0.1);
+      badgeTextCol = AppColors.secondary;
     }
 
     return InkWell(

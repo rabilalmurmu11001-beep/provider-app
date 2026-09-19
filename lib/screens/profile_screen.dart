@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/authServices.dart';
+import '../services/notification_service.dart';
 import '../services/socketService.dart';
 import '../stores/bookingProviders.dart';
 import '../stores/providers.dart';
@@ -1010,6 +1011,64 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 size: 16,
                               ),
                               onTap: () => context.go('/chat'),
+                            ),
+                            Divider(height: 1, color: theme.dividerColor),
+                            ListTile(
+                              leading: const Icon(
+                                Icons.notifications_outlined,
+                                size: 18,
+                                color: AppColors.primary,
+                              ),
+                              title: const Text(
+                                'Notification Center',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              subtitle: const Text(
+                                'Dispatch alerts, booking notices, and client pings',
+                                style: TextStyle(fontSize: 9.5),
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ValueListenableBuilder<int>(
+                                    valueListenable: NotificationService
+                                        .instance.unreadCountNotifier,
+                                    builder: (context, count, _) {
+                                      if (count == 0) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      return Container(
+                                        margin: const EdgeInsets.only(right: 6),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.danger,
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
+                                        child: Text(
+                                          '$count new',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  const Icon(
+                                    Icons.chevron_right,
+                                    size: 16,
+                                  ),
+                                ],
+                              ),
+                              onTap: () => context.push('/notifications'),
                             ),
                           ],
                         ),

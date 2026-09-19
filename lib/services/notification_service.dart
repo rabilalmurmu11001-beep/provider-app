@@ -41,7 +41,33 @@ class NotificationService {
   String? _fcmToken;
   String? get fcmToken => _fcmToken;
 
+  /// Real-time notifier for total unread notifications count
+  final ValueNotifier<int> unreadCountNotifier = ValueNotifier<int>(0);
+
   bool _isInitialized = false;
+
+  /// Helper to create an authenticated Dio instance with certificate overrides
+  Dio _createAuthDio(String jwtToken) {
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: '$host/api/v1',
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 15),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $jwtToken',
+        },
+      ),
+    );
+    dio.httpClientAdapter = IOHttpClientAdapter(
+      createHttpClient: () {
+        final client = HttpClient();
+        client.badCertificateCallback = (cert, host, port) => true;
+        return client;
+      },
+    );
+    return dio;
+  }
 
   /// Initializes permissions, channels, and FCM listeners
   Future<void> initialize() async {
@@ -156,26 +182,8 @@ class NotificationService {
       final token = _fcmToken ?? await _messaging.getToken();
       if (token == null || token.isEmpty) return;
 
-      final dio = Dio(
-        BaseOptions(
-          baseUrl: '$host/api/v1',
-          connectTimeout: const Duration(seconds: 15),
-          receiveTimeout: const Duration(seconds: 15),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $jwtToken',
-          },
-        ),
-      );
-      dio.httpClientAdapter = IOHttpClientAdapter(
-        createHttpClient: () {
-          final client = HttpClient();
-          client.badCertificateCallback = (cert, host, port) => true;
-          return client;
-        },
-      );
-
-      final response = await dio.post('/user/fcm-token', data: {'fcmToken': token});
+      final dio = _createAuthDio(jwtToken);
+      final response = await dio.post('/users/fcm-token', data: {'fcmToken': token});
       debugPrint('Provider FCM Token successfully synced with backend: ${response.statusCode}');
     } catch (e) {
       debugPrint('Failed to sync Provider FCM Token with backend: $e');
@@ -188,30 +196,89 @@ class NotificationService {
       final jwtToken = await TokenRepository().readToken();
       if (jwtToken == null || jwtToken.isEmpty) return;
 
-      final dio = Dio(
-        BaseOptions(
-          baseUrl: '$host/api/v1',
-          connectTimeout: const Duration(seconds: 15),
-          receiveTimeout: const Duration(seconds: 15),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $jwtToken',
-          },
-        ),
-      );
-      dio.httpClientAdapter = IOHttpClientAdapter(
-        createHttpClient: () {
-          final client = HttpClient();
-          client.badCertificateCallback = (cert, host, port) => true;
-          return client;
-        },
-      );
-
-      await dio.delete('/user/fcm-token');
+      final dio = _createAuthDio(jwtToken);
+      await dio.delete('/users/fcm-token');
       debugPrint('Provider FCM Token successfully cleared from backend');
     } catch (e) {
       debugPrint('Failed to clear Provider FCM Token from backend: $e');
     }
+  }
+
+  /// Fetch in-app notification history from backend
+  Future<List<Map<String, dynamic>>> getUserNotifications({
+    int page = 1,
+    int limit = 50,
+  }) async {
+    try {
+      final jwtToken = await TokenRepository().readToken();
+      if (jwtToken == null || jwtToken.isEmpty) return [];
+
+      final dio = _createAuthDio(jwtToken);
+      final response = await dio.get(
+        '/notifications',
+        queryParameters: {'page': page, 'limit': limit},
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final List list = response.data['notifications'] ?? [];
+        final items = list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+
+        // Update unread count notifier
+        final unread = items.where((i) => i['isRead'] != true).length;
+        unreadCountNotifier.value = unread;
+        return items;
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Error fetching notifications from backend: $e');
+      return [];
+    }
+  }
+
+  /// Mark single notification as read
+  Future<bool> markAsRead(String notificationId) async {
+    try {
+      final jwtToken = await TokenRepository().readToken();
+      if (jwtToken == null || jwtToken.isEmpty) return false;
+
+      final dio = _createAuthDio(jwtToken);
+      final response = await dio.patch('/notifications/$notificationId/read');
+      if (response.statusCode == 200) {
+        if (unreadCountNotifier.value > 0) {
+          unreadCountNotifier.value--;
+        }
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error marking notification read: $e');
+      return false;
+    }
+  }
+
+  /// Mark all notifications as read
+  Future<bool> markAllAsRead() async {
+    try {
+      final jwtToken = await TokenRepository().readToken();
+      if (jwtToken == null || jwtToken.isEmpty) return false;
+
+      final dio = _createAuthDio(jwtToken);
+      final response = await dio.patch('/notifications/read-all');
+      if (response.statusCode == 200) {
+        unreadCountNotifier.value = 0;
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error marking all notifications read: $e');
+      return false;
+    }
+  }
+
+  /// Refresh unread notifications count from backend
+  Future<int> refreshUnreadCount() async {
+    final list = await getUserNotifications(page: 1, limit: 50);
+    return list.where((i) => i['isRead'] != true).length;
   }
 
   /// Setup listeners for foreground messages and notification clicks
@@ -219,6 +286,7 @@ class NotificationService {
     // 1. App in FOREGROUND
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint('Foreground FCM message received: ${message.messageId}');
+      unreadCountNotifier.value++;
       final notification = message.notification;
       final android = message.notification?.android;
 
@@ -267,7 +335,7 @@ class NotificationService {
   void _handleNotificationRouting(Map<String, dynamic> data) {
     if (data.isEmpty) {
       Future.delayed(const Duration(milliseconds: 600), () {
-        router.push('/dashboard');
+        router.push('/notifications');
       });
       return;
     }
@@ -297,8 +365,14 @@ class NotificationService {
         return;
       }
 
+      // 4. Notifications or General Alerts
+      if (data['type'] == 'notification' || data['type'] == 'alert') {
+        router.push('/notifications');
+        return;
+      }
+
       // Fallback
-      router.push('/dashboard');
+      router.push('/notifications');
     });
   }
 }
