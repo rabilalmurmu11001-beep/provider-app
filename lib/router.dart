@@ -1,12 +1,14 @@
 import 'package:go_router/go_router.dart';
 import 'package:provider_app/screens/addservice_screen.dart';
 import 'package:provider_app/screens/auth/onboarding_screen.dart';
+import 'package:provider_app/screens/auth/otp_verification_screen.dart';
 import 'package:provider_app/screens/auth/signup_screen.dart';
 import 'package:provider_app/screens/auth/splash_screen.dart';
 import 'package:provider_app/screens/bookingDetails_screen.dart';
 import 'package:provider_app/screens/chat_screen.dart';
 import 'package:provider_app/screens/earning_screen.dart';
 import 'package:provider_app/screens/profile_screen.dart';
+import 'package:provider_app/screens/kyc_screen.dart';
 import 'screens/auth/signin_screen.dart';
 import 'screens/dashboard_screens.dart';
 import 'screens/bookings_screens.dart';
@@ -34,6 +36,27 @@ final GoRouter router = GoRouter(
         GoRoute(
           path: '/signup',
           builder: (context, state) => const SignupScreen(),
+        ),
+        GoRoute(
+          path: '/signup-otp',
+          builder: (context, state) {
+            final extra = state.extra is Map<String, dynamic>
+                ? state.extra as Map<String, dynamic>
+                : <String, dynamic>{};
+            return OtpVerificationScreen(
+              signupToken: extra['signupToken'] as String? ??
+                  state.uri.queryParameters['signupToken'],
+              email: extra['email'] as String? ??
+                  state.uri.queryParameters['email'] ??
+                  '',
+              mobile: extra['mobile'] as String? ??
+                  state.uri.queryParameters['mobile'],
+              requiresPhoneVerification:
+                  extra['requiresPhoneVerification'] as bool? ??
+                      (state.uri.queryParameters['requiresPhoneVerification'] ==
+                          'true'),
+            );
+          },
         ),
         GoRoute(
           path: '/dashboard',
@@ -100,6 +123,10 @@ final GoRouter router = GoRouter(
         GoRoute(
           path: '/notifications',
           builder: (context, state) => const NotificationsScreen(),
+        ),
+        GoRoute(
+          path: '/kyc',
+          builder: (context, state) => const KycScreen(),
         ),
       ],
     ),

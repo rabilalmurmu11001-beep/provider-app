@@ -44,18 +44,22 @@ class AuthService {
   Future<Response> signup(
     String username,
     String password,
-    String email,
-    String mobile,
-  ) async {
+    String email, [
+    String? mobile,
+  ]) async {
     try {
+      final Map<String, dynamic> data = {
+        "username": username,
+        "password": password,
+        "email": email,
+      };
+      if (mobile != null && mobile.trim().isNotEmpty) {
+        data["mobile"] = mobile.trim();
+      }
+
       Response<dynamic> result = await _dio.post(
         "/auth/signup?r=provider",
-        data: {
-          "username": username,
-          "password": password,
-          "email": email,
-          "mobile": mobile,
-        },
+        data: data,
       );
 
       return result;
@@ -63,6 +67,70 @@ class AuthService {
       rethrow;
     }
   }
+
+  /// Verify signup OTP (email and/or phone) to complete user registration
+  Future<Response> verifySignupOtp({
+    String? signupToken,
+    String? email,
+    String? emailOtp,
+    String? phoneOtp,
+    String? otp,
+  }) async {
+    try {
+      final Map<String, dynamic> data = {};
+      if (signupToken != null && signupToken.isNotEmpty) {
+        data['signupToken'] = signupToken;
+      }
+      if (email != null && email.isNotEmpty) {
+        data['email'] = email;
+      }
+      if (emailOtp != null && emailOtp.isNotEmpty) {
+        data['emailOtp'] = emailOtp;
+      }
+      if (phoneOtp != null && phoneOtp.isNotEmpty) {
+        data['phoneOtp'] = phoneOtp;
+      }
+      if (otp != null && otp.isNotEmpty) {
+        data['otp'] = otp;
+      }
+
+      Response<dynamic> result = await _dio.post(
+        "/auth/verify-signup-otp",
+        data: data,
+      );
+
+      return result;
+    } catch (err) {
+      rethrow;
+    }
+  }
+
+  /// Resend signup OTP for email, phone, or both
+  Future<Response> resendSignupOtp({
+    String? signupToken,
+    String? email,
+    String type = 'all',
+  }) async {
+    try {
+      final Map<String, dynamic> data = {'type': type};
+      if (signupToken != null && signupToken.isNotEmpty) {
+        data['signupToken'] = signupToken;
+      }
+      if (email != null && email.isNotEmpty) {
+        data['email'] = email;
+      }
+
+      Response<dynamic> result = await _dio.post(
+        "/auth/resend-signup-otp",
+        data: data,
+      );
+
+      return result;
+    } catch (err) {
+      rethrow;
+    }
+  }
+
 
   Future<Response> getUserProfile() async {
     try {
@@ -134,6 +202,11 @@ class AuthService {
     } catch (err) {
       rethrow;
     }
+  }
+
+  /// Update user profile picture URL
+  Future<Response> updateProfilePicture(String photoUrl) async {
+    return updateUserProfile({'photo': photoUrl});
   }
 
   /// Send password reset email

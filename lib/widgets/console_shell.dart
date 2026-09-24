@@ -35,6 +35,11 @@ class ResponsiveConsoleShell extends StatelessWidget {
           'title': '4. Rapid Registration',
           'desc': 'Simplified provider profile mapping template optimized for step-by-step business verification setup.',
         };
+      case '/signup-otp':
+        return {
+          'title': '4b. Identity Authorization',
+          'desc': 'Dynamic dual/single OTP verification securing account activation before database persistence.',
+        };
       case '/dashboard':
         return {
           'title': '15. Earnings Cockpit',

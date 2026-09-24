@@ -5,8 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:dio/dio.dart';
 import '../../theme.dart';
 import '../../services/authServices.dart';
-import '../../services/socketService.dart';
-import '../../secureStorage.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -94,62 +92,50 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     return error.toString();
   }
 
-  String? _extractToken(Response response) {
-    if (response.data == null) return null;
-    final data = response.data;
-    if (data is Map) {
-      if (data.containsKey('token')) {
-        return data['token']?.toString();
-      }
-      if (data.containsKey('accessToken')) {
-        return data['accessToken']?.toString();
-      }
-      if (data.containsKey('data') && data['data'] is Map) {
-        final nestedData = data['data'];
-        if (nestedData.containsKey('token')) {
-          return nestedData['token']?.toString();
-        }
-        if (nestedData.containsKey('accessToken')) {
-          return nestedData['accessToken']?.toString();
-        }
-      }
-    }
-    return null;
-  }
 
-  String getFormattedMobile() {
-    final raw = _mobileController.text.trim();
-    if (raw.startsWith('+')) {
-      return raw;
-    }
-    return '+1$raw';
-  }
 
   Future<void> _handleSignup() async {
     final username = _nameController.text.trim();
     final email = _emailController.text.trim();
-    final mobile = getFormattedMobile();
+    final rawMobile = _mobileController.text.trim();
     final password = _passwordController.text.trim();
 
     if (username.isEmpty) {
       _showErrorSnackBar('Please enter your full legal name');
       return;
     }
+    if (username.length < 3) {
+      _showErrorSnackBar('Name must be at least 3 characters long');
+      return;
+    }
     if (email.isEmpty) {
       _showErrorSnackBar('Please enter your business email');
       return;
     }
-    if (_mobileController.text.trim().isEmpty) {
-      _showErrorSnackBar('Please enter your mobile number');
+    if (!email.contains('@') || !email.contains('.')) {
+      _showErrorSnackBar('Please enter a valid email address');
       return;
     }
     if (password.isEmpty) {
       _showErrorSnackBar('Please enter a password');
       return;
     }
-    if (password.length < 6) {
-      _showErrorSnackBar('Password must be at least 6 characters long');
+    if (password.length < 8) {
+      _showErrorSnackBar('Password must be at least 8 characters long');
       return;
+    }
+
+    String? cleanMobile;
+    if (rawMobile.isNotEmpty) {
+      final sanitized = rawMobile.replaceAll(RegExp(r'[\s\-\(\)]'), '');
+      final formatted = sanitized.startsWith('+') ? sanitized : '+1$sanitized';
+      if (!RegExp(r'^\+?[0-9]{10,15}$').hasMatch(formatted)) {
+        _showErrorSnackBar(
+          'Please enter a valid mobile number (10-15 digits) or leave it blank.',
+        );
+        return;
+      }
+      cleanMobile = formatted;
     }
 
     setState(() {
@@ -162,22 +148,28 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         username,
         password,
         email,
-        mobile,
+        cleanMobile,
       );
 
-      final token = _extractToken(result);
-      if (token != null) {
-        await TokenRepository().persistToken(token);
-        SocketService.instance.connect(token);
-        if (mounted) {
-          _showSuccessSnackBar('Profile created and authenticated successfully!');
-          context.go('/dashboard');
-        }
-      } else {
-        if (mounted) {
-          _showSuccessSnackBar('Profile created successfully! Please sign in.');
-          context.go('/login');
-        }
+      final data = result.data is Map ? result.data : <String, dynamic>{};
+      final signupToken = data['signupToken'] as String?;
+      final requiresPhone = data['requiresPhoneVerification'] == true;
+      final returnedEmail = data['email'] as String? ?? email;
+      final returnedMobile = data['mobile'] as String? ?? cleanMobile;
+      final message =
+          data['message'] as String? ?? 'Verification code sent successfully.';
+
+      if (mounted) {
+        _showSuccessSnackBar(message);
+        context.push(
+          '/signup-otp',
+          extra: {
+            'signupToken': signupToken,
+            'email': returnedEmail,
+            'mobile': returnedMobile,
+            'requiresPhoneVerification': requiresPhone,
+          },
+        );
       }
     } catch (err) {
       _showErrorSnackBar(_getErrorMessage(err));
@@ -294,14 +286,38 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     const SizedBox(height: 16),
 
                     // Mobile field
-                    Text(
-                      'Operator Mobile Number',
-                      style: GoogleFonts.inter(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: theme.textTheme.bodyMedium?.color,
-                        letterSpacing: 0.5,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          'Operator Mobile Number',
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: theme.textTheme.bodyMedium?.color,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.dividerColor.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'OPTIONAL',
+                            style: GoogleFonts.inter(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              color: theme.textTheme.bodyMedium?.color,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 6),
                     Row(
@@ -339,7 +355,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                             controller: _mobileController,
                             keyboardType: TextInputType.phone,
                             decoration: const InputDecoration(
-                              hintText: '(555) 019-2834',
+                              hintText: '(555) 019-2834 (Optional)',
                               floatingLabelBehavior: FloatingLabelBehavior.never,
                             ),
                             style: const TextStyle(fontSize: 13),
@@ -444,7 +460,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
-                          disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
+                          disabledBackgroundColor:
+                              AppColors.primary.withValues(alpha: 0.5),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
@@ -456,11 +473,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor:
+                                      AlwaysStoppedAnimation<Color>(Colors.white),
                                 ),
                               )
                             : Text(
-                                'Publish Profile Matrix',
+                                'Confirm Registration',
                                 style: GoogleFonts.inter(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,

@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider_app/services/authServices.dart';
 import 'package:provider_app/services/notification_service.dart';
+import 'package:provider_app/services/kyc_service.dart';
 import 'package:provider_app/stores/bookingProviders.dart';
+import 'package:provider_app/stores/kyc_providers.dart';
 import 'package:provider_app/stores/providers.dart';
 import '../theme.dart';
 
@@ -122,27 +124,71 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         children: [
                           Row(
                             children: [
-                              Container(
-                                width: 42,
-                                height: 42,
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  profileState?['username'] != null &&
-                                          profileState!['username']
-                                              .isNotEmpty
-                                      ? profileState['username'][0]
-                                          .toUpperCase()
-                                      : 'P',
-                                  style: GoogleFonts.poppins(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                  ),
-                                ),
+                              Builder(
+                                builder: (context) {
+                                  final photoUrl =
+                                      profileState?['photo']?.toString();
+                                  final username =
+                                      profileState?['username']?.toString() ??
+                                      '';
+                                  final initialChar = username.isNotEmpty
+                                      ? username[0].toUpperCase()
+                                      : 'P';
+
+                                  return InkWell(
+                                    onTap: () => context.go('/profile'),
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      width: 42,
+                                      height: 42,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(12),
+                                        gradient: const LinearGradient(
+                                          colors: [
+                                            AppColors.primary,
+                                            AppColors.secondary,
+                                          ],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: (photoUrl != null &&
+                                                photoUrl.trim().isNotEmpty)
+                                            ? Image.network(
+                                                photoUrl.trim(),
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (
+                                                  context,
+                                                  error,
+                                                  stackTrace,
+                                                ) => Center(
+                                                  child: Text(
+                                                    initialChar,
+                                                    style: GoogleFonts.poppins(
+                                                      color: Colors.white,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 15,
+                                                    ),
+                                                  ),
+                                                ),
+                                              )
+                                            : Center(
+                                                child: Text(
+                                                  initialChar,
+                                                  style: GoogleFonts.poppins(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 15,
+                                                  ),
+                                                ),
+                                              ),
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
                               const SizedBox(width: 12),
                               Column(
@@ -273,67 +319,136 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               const SizedBox(width: 8),
 
                               // Online Toggle Button
-                              GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _isOnline = !_isOnline;
-                                  });
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        _isOnline
-                                            ? '🟢 Operations Status: ONLINE'
-                                            : '🔴 Operations Status: OFFLINE',
-                                        style: const TextStyle(fontSize: 12),
+                              Consumer(
+                                builder: (context, ref, _) {
+                                  final kycAsync = ref.watch(kycStatusAsyncProvider);
+                                  final isVerified = kycAsync.value?['isVerified'] == true;
+
+                                  return GestureDetector(
+                                    onTap: () async {
+                                      if (!_isOnline && !isVerified) {
+                                        showDialog(
+                                          context: context,
+                                          builder: (dialogCtx) => AlertDialog(
+                                            backgroundColor: theme.cardColor,
+                                            title: Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons.security_rounded,
+                                                  color: AppColors.warning,
+                                                  size: 22,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  'KYC Required',
+                                                  style: GoogleFonts.poppins(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 15,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            content: Text(
+                                              'You must complete and have your KYC verified before you can go online and accept bookings.',
+                                              style: GoogleFonts.inter(fontSize: 13),
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(dialogCtx),
+                                                child: const Text('Later'),
+                                              ),
+                                              ElevatedButton(
+                                                onPressed: () {
+                                                  Navigator.pop(dialogCtx);
+                                                  context.push('/kyc');
+                                                },
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: AppColors.primary,
+                                                  foregroundColor: Colors.white,
+                                                ),
+                                                child: const Text('Complete KYC'),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                        return;
+                                      }
+
+                                      final targetState = !_isOnline;
+                                      setState(() => _isOnline = targetState);
+
+                                      try {
+                                        await ref
+                                            .read(kycServiceProvider)
+                                            .updateProviderStatus(
+                                              targetState ? 'available' : 'offline',
+                                            );
+                                      } catch (_) {
+                                        if (mounted) {
+                                          setState(() => _isOnline = !targetState);
+                                        }
+                                      }
+
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              _isOnline
+                                                  ? '🟢 Operations Status: ONLINE'
+                                                  : '🔴 Operations Status: OFFLINE',
+                                              style: const TextStyle(fontSize: 12),
+                                            ),
+                                            duration: const Duration(seconds: 2),
+                                            behavior: SnackBarBehavior.floating,
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 6,
                                       ),
-                                      duration: const Duration(seconds: 2),
-                                      behavior: SnackBarBehavior.floating,
+                                      decoration: BoxDecoration(
+                                        color: _isOnline
+                                            ? AppColors.success.withValues(alpha: 0.1)
+                                            : AppColors.danger.withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: _isOnline
+                                              ? AppColors.success.withValues(alpha: 0.3)
+                                              : AppColors.danger.withValues(alpha: 0.3),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Container(
+                                            width: 6,
+                                            height: 6,
+                                            decoration: BoxDecoration(
+                                              color: _isOnline
+                                                  ? AppColors.success
+                                                  : AppColors.danger,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            _isOnline ? 'ONLINE' : 'OFFLINE',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.bold,
+                                              color: _isOnline
+                                                  ? AppColors.success
+                                                  : AppColors.danger,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   );
                                 },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _isOnline
-                                        ? AppColors.success.withValues(alpha: 0.1)
-                                        : AppColors.danger.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: _isOnline
-                                          ? AppColors.success.withValues(alpha: 0.3)
-                                          : AppColors.danger.withValues(alpha: 0.3),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Container(
-                                        width: 6,
-                                        height: 6,
-                                        decoration: BoxDecoration(
-                                          color: _isOnline
-                                              ? AppColors.success
-                                              : AppColors.danger,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        _isOnline ? 'ONLINE' : 'OFFLINE',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.bold,
-                                          color: _isOnline
-                                              ? AppColors.success
-                                              : AppColors.danger,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
                               ),
                             ],
                           ),
@@ -433,6 +548,123 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       ),
                     ],
                   ),
+                ),
+
+                // KYC Status Action Banner
+                Consumer(
+                  builder: (context, ref, _) {
+                    final kycAsync = ref.watch(kycStatusAsyncProvider);
+                    final isVerified = kycAsync.value?['isVerified'] == true;
+                    if (isVerified) return const SizedBox.shrink();
+
+                    final status = (kycAsync.value?['status']?.toString() ??
+                            'not_submitted')
+                        .toLowerCase();
+                    final reason =
+                        kycAsync.value?['rejectionReason']?.toString() ?? '';
+
+                    Color bannerColor;
+                    Color borderColor;
+                    IconData bannerIcon;
+                    String bannerTitle;
+                    String bannerText;
+                    String actionText;
+
+                    if (status == 'rejected') {
+                      bannerColor = AppColors.danger.withValues(alpha: 0.12);
+                      borderColor = AppColors.danger.withValues(alpha: 0.35);
+                      bannerIcon = Icons.error_outline_rounded;
+                      bannerTitle = 'KYC Verification Rejected';
+                      bannerText = reason.isNotEmpty
+                          ? 'Reason: $reason. Please update your documents.'
+                          : 'Your verification was not approved. Tap to update.';
+                      actionText = 'Fix Now';
+                    } else if (status == 'pending' || status == 'in_review') {
+                      bannerColor = AppColors.warning.withValues(alpha: 0.12);
+                      borderColor = AppColors.warning.withValues(alpha: 0.35);
+                      bannerIcon = Icons.hourglass_top_rounded;
+                      bannerTitle = 'Verification in Progress';
+                      bannerText =
+                          'Your documents are currently under review by administrators.';
+                      actionText = 'View Status';
+                    } else {
+                      bannerColor = AppColors.primary.withValues(alpha: 0.12);
+                      borderColor = AppColors.primary.withValues(alpha: 0.35);
+                      bannerIcon = Icons.shield_outlined;
+                      bannerTitle = 'KYC Verification Required';
+                      bannerText =
+                          'Complete your identity verification to accept customer bookings and go online.';
+                      actionText = 'Verify Now';
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                      child: InkWell(
+                        onTap: () => context.push('/kyc'),
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                          decoration: BoxDecoration(
+                            color: bannerColor,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: borderColor),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(bannerIcon, color: borderColor, size: 24),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      bannerTitle,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: theme.textTheme.bodyLarge?.color,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      bannerText,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        color:
+                                            theme.textTheme.bodyMedium?.color,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  actionText,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
 
                 // Main Content

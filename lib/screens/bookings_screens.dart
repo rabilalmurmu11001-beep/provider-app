@@ -74,13 +74,68 @@ class _BookingsScreenState extends ConsumerState<BookingsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to accept booking: $e'),
-            backgroundColor: AppColors.danger,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        String msg = 'Failed to accept booking';
+        bool isKycError = false;
+        if (e is DioException) {
+          final data = e.response?.data;
+          if (data is Map && data['message'] != null) {
+            msg = data['message'].toString();
+          }
+          if (e.response?.statusCode == 403 ||
+              msg.toLowerCase().contains('kyc')) {
+            isKycError = true;
+          }
+        }
+        if (isKycError) {
+          showDialog(
+            context: context,
+            builder: (dialogCtx) => AlertDialog(
+              backgroundColor: Theme.of(context).cardColor,
+              title: Row(
+                children: [
+                  const Icon(Icons.security_rounded, color: AppColors.warning),
+                  const SizedBox(width: 8),
+                  Text(
+                    'KYC Required',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+              content: Text(
+                msg,
+                style: GoogleFonts.inter(fontSize: 13),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(dialogCtx);
+                    context.push('/kyc');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Complete KYC'),
+                ),
+              ],
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(msg),
+              backgroundColor: AppColors.danger,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     } finally {
       if (mounted) {

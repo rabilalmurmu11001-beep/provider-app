@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/authServices.dart';
 import '../services/notification_service.dart';
 import '../services/socketService.dart';
+import '../services/upload_service.dart';
 import '../stores/bookingProviders.dart';
+import '../stores/kyc_providers.dart';
 import '../stores/providers.dart';
 import '../theme.dart';
 
@@ -17,6 +20,8 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  bool _isUploadingPhoto = false;
+
   @override
   void initState() {
     super.initState();
@@ -32,6 +37,200 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     ref.invalidate(providerProfileAsyncProvider);
     ref.invalidate(providerAssignedBookingsProvider('completed'));
     await ref.read(providerProfileAsyncProvider.future);
+  }
+
+  Future<void> _pickAndUploadProfilePhoto(
+    ImageSource source, {
+    void Function(void Function())? modalSetState,
+    void Function(String newUrl)? onUploaded,
+  }) async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+
+      if (pickedFile == null) return; // User cancelled
+
+      if (modalSetState != null) {
+        modalSetState(() {});
+      }
+      setState(() => _isUploadingPhoto = true);
+
+      // 1. Upload to S3 via backend /upload endpoint
+      final uploadService = ref.read(uploadServiceProvider);
+      final uploadResult = await uploadService.uploadFile(
+        file: pickedFile,
+        folder: 'avatars',
+      );
+
+      // 2. Persist new photo URL to user profile
+      final authService = ref.read(authServiceProvider);
+      final res = await authService.updateProfilePicture(uploadResult.url);
+
+      // 3. Update cached state in Riverpod
+      if (res.data is Map<String, dynamic> && res.data['user'] != null) {
+        ref.read(providerProfileProvider.notifier).state = res.data['user'];
+      }
+      ref.invalidate(providerProfileAsyncProvider);
+
+      if (onUploaded != null) {
+        onUploaded(uploadResult.url);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✓ Profile picture updated successfully!'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update profile picture: $e'),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingPhoto = false);
+      }
+      if (modalSetState != null) {
+        modalSetState(() {});
+      }
+    }
+  }
+
+  void _showPhotoPickerActionSheet(
+    BuildContext context, {
+    void Function(void Function())? modalSetState,
+    void Function(String newUrl)? onUploaded,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (bottomSheetContext) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+          decoration: BoxDecoration(
+            color: theme.cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),
+                blurRadius: 20,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: theme.dividerColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Update Profile Picture',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Choose an option to change your avatar image',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.photo_camera_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                  ),
+                  title: const Text(
+                    'Take a Photo',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                  subtitle: const Text(
+                    'Use camera to capture a new photo',
+                    style: TextStyle(fontSize: 10),
+                  ),
+                  onTap: () {
+                    Navigator.of(bottomSheetContext).pop();
+                    _pickAndUploadProfilePhoto(
+                      ImageSource.camera,
+                      modalSetState: modalSetState,
+                      onUploaded: onUploaded,
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.photo_library_rounded,
+                      color: AppColors.secondary,
+                      size: 20,
+                    ),
+                  ),
+                  title: const Text(
+                    'Choose from Gallery',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                  subtitle: const Text(
+                    'Select an existing image from your device',
+                    style: TextStyle(fontSize: 10),
+                  ),
+                  onTap: () {
+                    Navigator.of(bottomSheetContext).pop();
+                    _pickAndUploadProfilePhoto(
+                      ImageSource.gallery,
+                      modalSetState: modalSetState,
+                      onUploaded: onUploaded,
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showEditProfileModal(
@@ -64,6 +263,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             : '';
 
     bool isSaving = false;
+    String? currentModalPhoto = userProfile['photo']?.toString();
+    final modalInitials = (userProfile['username']?.toString() ?? 'P').trim().isNotEmpty
+        ? (userProfile['username']?.toString() ?? 'P')
+            .trim()
+            .split(' ')
+            .where((s) => s.isNotEmpty)
+            .map((s) => s[0])
+            .take(2)
+            .join()
+            .toUpperCase()
+        : 'P';
 
     showModalBottomSheet(
       context: context,
@@ -147,7 +357,110 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
+
+                      // Profile Picture Preview & Change Action in Modal
+                      Center(
+                        child: Column(
+                          children: [
+                            Stack(
+                              children: [
+                                Container(
+                                  width: 72,
+                                  height: 72,
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        AppColors.primary,
+                                        AppColors.secondary,
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                  ),
+                                  child: ClipOval(
+                                    child: (currentModalPhoto != null &&
+                                            currentModalPhoto!.isNotEmpty)
+                                        ? Image.network(
+                                            currentModalPhoto!,
+                                            fit: BoxFit.cover,
+                                            errorBuilder:
+                                                (context, error, stackTrace) =>
+                                                    Center(
+                                              child: Text(
+                                                modalInitials,
+                                                style: GoogleFonts.poppins(
+                                                  color: Colors.white,
+                                                  fontSize: 22,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          )
+                                        : Center(
+                                            child: Text(
+                                              modalInitials,
+                                              style: GoogleFonts.poppins(
+                                                color: Colors.white,
+                                                fontSize: 22,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                                if (_isUploadingPhoto)
+                                  Positioned.fill(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(alpha: 0.5),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: const SizedBox(
+                                        width: 22,
+                                        height: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            TextButton.icon(
+                              onPressed: _isUploadingPhoto
+                                  ? null
+                                  : () => _showPhotoPickerActionSheet(
+                                        modalContext,
+                                        modalSetState: setModalState,
+                                        onUploaded: (url) {
+                                          setModalState(() {
+                                            currentModalPhoto = url;
+                                          });
+                                        },
+                                      ),
+                              icon: const Icon(
+                                Icons.camera_alt_outlined,
+                                size: 15,
+                                color: AppColors.primary,
+                              ),
+                              label: Text(
+                                'Change Profile Photo',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
 
                       // Full Name / Username
                       Text(
@@ -577,6 +890,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final email = userData['email']?.toString() ?? 'provider@network.local';
     final mobile = userData['mobile']?.toString() ?? 'Not configured';
     final address = userData['address']?.toString() ?? 'Service Radius Active';
+    final photo = userData['photo']?.toString();
     final role = (userData['role']?.toString() ?? 'service_provider')
         .replaceAll('_', ' ')
         .toUpperCase();
@@ -662,54 +976,169 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                       const SizedBox(height: 12),
 
-                      // Avatar with Online Dot
+                      // Avatar with Photo Upload, Camera Badge & Online Dot
                       Stack(
+                        clipBehavior: Clip.none,
                         children: [
-                          Container(
-                            width: 76,
-                            height: 76,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  AppColors.primary,
-                                  AppColors.secondary,
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primary.withValues(
-                                    alpha: 0.3,
-                                  ),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
+                          GestureDetector(
+                            onTap: _isUploadingPhoto
+                                ? null
+                                : () => _showPhotoPickerActionSheet(context),
+                            child: Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    AppColors.primary,
+                                    AppColors.secondary,
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
                                 ),
-                              ],
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              initials,
-                              style: GoogleFonts.poppins(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.3,
+                                    ),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: ClipOval(
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    if (photo != null && photo.trim().isNotEmpty)
+                                      Image.network(
+                                        photo.trim(),
+                                        fit: BoxFit.cover,
+                                        loadingBuilder: (
+                                          context,
+                                          child,
+                                          loadingProgress,
+                                        ) {
+                                          if (loadingProgress == null) {
+                                            return child;
+                                          }
+                                          return Center(
+                                            child: CircularProgressIndicator(
+                                              value: loadingProgress
+                                                          .expectedTotalBytes !=
+                                                      null
+                                                  ? loadingProgress
+                                                          .cumulativeBytesLoaded /
+                                                      loadingProgress
+                                                          .expectedTotalBytes!
+                                                  : null,
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          );
+                                        },
+                                        errorBuilder: (
+                                          context,
+                                          error,
+                                          stackTrace,
+                                        ) {
+                                          return Center(
+                                            child: Text(
+                                              initials,
+                                              style: GoogleFonts.poppins(
+                                                color: Colors.white,
+                                                fontSize: 24,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      )
+                                    else
+                                      Center(
+                                        child: Text(
+                                          initials,
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.white,
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+
+                                    // Uploading progress overlay
+                                    if (_isUploadingPhoto)
+                                      Container(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.6,
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: const SizedBox(
+                                          width: 26,
+                                          height: 26,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.5,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
+
+                          // Online Status Dot (Top-Right)
                           Positioned(
-                            bottom: 2,
-                            right: 2,
+                            top: 0,
+                            right: 0,
                             child: Container(
-                              width: 18,
-                              height: 18,
+                              width: 16,
+                              height: 16,
                               decoration: BoxDecoration(
                                 color: AppColors.success,
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                   color: theme.cardColor,
                                   width: 2.5,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          // Camera / Edit Badge (Bottom-Right)
+                          Positioned(
+                            bottom: -2,
+                            right: -2,
+                            child: GestureDetector(
+                              onTap: _isUploadingPhoto
+                                  ? null
+                                  : () => _showPhotoPickerActionSheet(context),
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: theme.cardColor,
+                                    width: 2,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.2,
+                                      ),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.camera_alt_rounded,
+                                  size: 14,
+                                  color: Colors.white,
                                 ),
                               ),
                             ),
@@ -1140,6 +1569,135 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
                       const SizedBox(height: 24),
 
+                      // KYC Verification Card
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final kycAsync = ref.watch(kycStatusAsyncProvider);
+                          final status = (kycAsync.value?['status']?.toString() ??
+                                  'not_submitted')
+                              .toLowerCase();
+                          final isVerified = kycAsync.value?['isVerified'] == true;
+
+                          Color badgeBg;
+                          Color badgeColor;
+                          String badgeText;
+                          IconData badgeIcon;
+
+                          if (isVerified || status == 'approved') {
+                            badgeBg = AppColors.success.withValues(alpha: 0.15);
+                            badgeColor = AppColors.success;
+                            badgeText = 'VERIFIED';
+                            badgeIcon = Icons.verified_rounded;
+                          } else if (status == 'pending') {
+                            badgeBg = AppColors.warning.withValues(alpha: 0.15);
+                            badgeColor = AppColors.warning;
+                            badgeText = 'IN REVIEW';
+                            badgeIcon = Icons.hourglass_top_rounded;
+                          } else if (status == 'rejected') {
+                            badgeBg = AppColors.danger.withValues(alpha: 0.15);
+                            badgeColor = AppColors.danger;
+                            badgeText = 'ACTION REQ.';
+                            badgeIcon = Icons.error_outline_rounded;
+                          } else {
+                            badgeBg = AppColors.primary.withValues(alpha: 0.15);
+                            badgeColor = AppColors.primary;
+                            badgeText = 'NOT VERIFIED';
+                            badgeIcon = Icons.shield_outlined;
+                          }
+
+                          return InkWell(
+                            onTap: () => context.push('/kyc'),
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: theme.cardColor,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: isVerified
+                                      ? AppColors.success.withValues(alpha: 0.4)
+                                      : (status == 'rejected'
+                                          ? AppColors.danger.withValues(alpha: 0.4)
+                                          : theme.dividerColor),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: badgeBg,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(badgeIcon,
+                                        color: badgeColor, size: 24),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              'KYC Verification',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                                color: theme
+                                                    .textTheme.bodyLarge?.color,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 6,
+                                                vertical: 2,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: badgeBg,
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                badgeText,
+                                                style: TextStyle(
+                                                  color: badgeColor,
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          isVerified
+                                              ? 'Government ID verified. Account in good standing.'
+                                              : (status == 'pending'
+                                                  ? 'Submission under review by administrators.'
+                                                  : (status == 'rejected'
+                                                      ? 'Review issues found. Tap to resubmit.'
+                                                      : 'Submit ID to go online and accept bookings.')),
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(fontSize: 11),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const Icon(Icons.arrow_forward_ios_rounded,
+                                      size: 14, color: Colors.grey),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+
+                      const SizedBox(height: 24),
+
                       // Verification checklist card
                       Container(
                         padding: const EdgeInsets.all(16),
@@ -1160,10 +1718,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            _buildChecklistItem(
-                              theme,
-                              'Identity Verification Baseline Approved',
-                              true,
+                            Consumer(
+                              builder: (context, ref, _) {
+                                final kycAsync =
+                                    ref.watch(kycStatusAsyncProvider);
+                                final isVerified =
+                                    kycAsync.value?['isVerified'] == true;
+                                final status = (kycAsync.value?['status']
+                                            ?.toString() ??
+                                        '')
+                                    .toLowerCase();
+                                final label = isVerified
+                                    ? 'Identity Verification (KYC) Approved'
+                                    : (status == 'pending'
+                                        ? 'Identity Verification (KYC) In Review'
+                                        : (status == 'rejected'
+                                            ? 'Identity Verification (KYC) Rejected'
+                                            : 'Identity Verification (KYC) Required'));
+                                return _buildChecklistItem(
+                                  theme,
+                                  label,
+                                  isVerified,
+                                );
+                              },
                             ),
                             const SizedBox(height: 8),
                             _buildChecklistItem(
