@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../network.dart';
@@ -49,11 +50,22 @@ class UploadService {
           ? file.name
           : file.path.split('/').last;
 
-      final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(
+      final MultipartFile multipartFile;
+      if (kIsWeb) {
+        final bytes = await file.readAsBytes();
+        multipartFile = MultipartFile.fromBytes(
+          bytes,
+          filename: fileName,
+        );
+      } else {
+        multipartFile = await MultipartFile.fromFile(
           file.path,
           filename: fileName,
-        ),
+        );
+      }
+
+      final formData = FormData.fromMap({
+        'file': multipartFile,
         'folder': folder,
       });
 

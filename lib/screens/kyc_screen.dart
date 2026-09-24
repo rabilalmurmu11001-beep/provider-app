@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/kyc_service.dart';
+import '../services/upload_service.dart';
 import '../stores/kyc_providers.dart';
 import '../stores/providers.dart';
 import '../theme.dart';
@@ -33,9 +35,17 @@ class _KycScreenState extends ConsumerState<KycScreen> {
   final _dobController = TextEditingController();
   final _selfieUrlController = TextEditingController();
 
+  // Upload and UI state
+  final Map<String, bool> _uploadingFields = {};
+  final Set<String> _showManualUrlInputs = {};
+  bool _submittedAttempt = false;
+
   bool _isSubmitting = false;
   bool _isEditing = false;
   bool _formInitialized = false;
+
+  bool _isFieldUploading(String key) => _uploadingFields[key] == true;
+  bool get _isAnyUploading => _uploadingFields.values.any((v) => v == true);
 
   final List<Map<String, dynamic>> _identityDocumentTypes = [
     {
@@ -171,8 +181,380 @@ class _KycScreenState extends ConsumerState<KycScreen> {
     _selfieUrlController.text = kycData['selfieUrl']?.toString() ?? '';
   }
 
+  Future<void> _pickDob() async {
+    final now = DateTime.now();
+    final initialDate = DateTime(now.year - 25, 1, 1);
+    final firstDate = DateTime(1930);
+    final lastDate = DateTime(now.year - 18, now.month, now.day);
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      helpText: 'Select Date of Birth',
+    );
+
+    if (picked != null) {
+      final y = picked.year.toString().padLeft(4, '0');
+      final m = picked.month.toString().padLeft(2, '0');
+      final d = picked.day.toString().padLeft(2, '0');
+      setState(() {
+        _dobController.text = '$y-$m-$d';
+      });
+    }
+  }
+
+  Future<void> _pickAndUploadImage({
+    required String fieldKey,
+    required TextEditingController controller,
+    required ImageSource source,
+  }) async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
+
+      if (pickedFile == null) return;
+
+      setState(() {
+        _uploadingFields[fieldKey] = true;
+      });
+
+      final uploadService = ref.read(uploadServiceProvider);
+      final result = await uploadService.uploadFile(
+        file: pickedFile,
+        folder: 'kyc',
+      );
+
+      if (mounted) {
+        setState(() {
+          controller.text = result.url;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: AppColors.success,
+            content: Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Text('Document uploaded successfully!',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.danger,
+            content: Text('Failed to upload document image: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _uploadingFields[fieldKey] = false;
+        });
+      }
+    }
+  }
+
+  void _showImageSourcePicker({
+    required String title,
+    required String fieldKey,
+    required TextEditingController controller,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (bottomSheetContext) {
+        final isDark =
+            Theme.of(bottomSheetContext).brightness == Brightness.dark;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Upload Document Photo',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                      onPressed: () => Navigator.pop(bottomSheetContext),
+                    ),
+                  ],
+                ),
+                Text(
+                  title,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.pop(bottomSheetContext);
+                          _pickAndUploadImage(
+                            fieldKey: fieldKey,
+                            controller: controller,
+                            source: ImageSource.camera,
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 20),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary
+                                .withValues(alpha: isDark ? 0.15 : 0.08),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color:
+                                      AppColors.primary.withValues(alpha: 0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.camera_alt_rounded,
+                                  color: AppColors.primary,
+                                  size: 26,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                'Take Photo',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Use Camera',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.pop(bottomSheetContext);
+                          _pickAndUploadImage(
+                            fieldKey: fieldKey,
+                            controller: controller,
+                            source: ImageSource.gallery,
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 20),
+                          decoration: BoxDecoration(
+                            color: AppColors.secondary
+                                .withValues(alpha: isDark ? 0.15 : 0.08),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: AppColors.secondary.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.secondary
+                                      .withValues(alpha: 0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.photo_library_rounded,
+                                  color: AppColors.secondary,
+                                  size: 26,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                'Choose Gallery',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Device Photos',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showImagePreviewDialog(String url, String title) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.85),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.pop(dialogContext),
+                    ),
+                  ],
+                ),
+              ),
+              ClipRRect(
+                borderRadius:
+                    const BorderRadius.vertical(bottom: Radius.circular(16)),
+                child: InteractiveViewer(
+                  maxScale: 4.0,
+                  child: Image.network(
+                    url,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 200,
+                      color: Colors.grey.shade900,
+                      alignment: Alignment.center,
+                      child: const Text('Could not load image',
+                          style: TextStyle(color: Colors.white)),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _submitKyc() async {
-    if (!_formKey.currentState!.validate()) return;
+    setState(() => _submittedAttempt = true);
+
+    if (!_formKey.currentState!.validate()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.danger,
+          content: Text('Please fill all required form fields correctly.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (_isAnyUploading) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.warning,
+          content: Text('Please wait for document images to finish uploading.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (_identityFrontUrlController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.danger,
+          content:
+              Text('Please upload the front image of your Identity Proof (POI).'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (_addressFrontUrlController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.danger,
+          content:
+              Text('Please upload your Address Proof document image (POA).'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     setState(() => _isSubmitting = true);
 
@@ -207,6 +589,7 @@ class _KycScreenState extends ConsumerState<KycScreen> {
       if (mounted) {
         setState(() {
           _isEditing = false;
+          _submittedAttempt = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -353,12 +736,12 @@ class _KycScreenState extends ConsumerState<KycScreen> {
 
                 // If approved and not editing, show verification summary
                 if (isVerified && !_isEditing)
-                  _buildApprovedSummary(theme, kycMap)
+                  _buildApprovedSummary(theme, kycMap, isDark)
                 // If pending review and not editing, show review details with edit button
                 else if (status == 'pending' && !_isEditing)
-                  _buildPendingSummary(theme, kycMap)
+                  _buildPendingSummary(theme, kycMap, isDark)
                 else if (status == 'in_review' && !_isEditing)
-                  _buildInReviewSummary(theme, kycMap)
+                  _buildInReviewSummary(theme, kycMap, isDark)
                 // Otherwise show the submission / edit form
                 else if (showForm)
                   _buildKycForm(theme, isDark, status),
@@ -489,7 +872,8 @@ class _KycScreenState extends ConsumerState<KycScreen> {
     );
   }
 
-  Widget _buildApprovedSummary(ThemeData theme, Map<String, dynamic>? kycData) {
+  Widget _buildApprovedSummary(
+      ThemeData theme, Map<String, dynamic>? kycData, bool isDark) {
     final idDocType = (kycData?['identityDocumentType'] ?? kycData?['documentType'])
             ?.toString()
             .replaceAll('_', ' ')
@@ -554,12 +938,14 @@ class _KycScreenState extends ConsumerState<KycScreen> {
             const Divider(height: 20),
             _buildInfoRow('Verified On', verifiedAt.split('T').first),
           ],
+          _buildDocumentPreviewGrid(kycData, theme, isDark),
         ],
       ),
     );
   }
 
-  Widget _buildPendingSummary(ThemeData theme, Map<String, dynamic>? kycData) {
+  Widget _buildPendingSummary(
+      ThemeData theme, Map<String, dynamic>? kycData, bool isDark) {
     final idDocType = (kycData?['identityDocumentType'] ?? kycData?['documentType'])
             ?.toString()
             .replaceAll('_', ' ')
@@ -621,13 +1007,140 @@ class _KycScreenState extends ConsumerState<KycScreen> {
             const SizedBox(height: 4),
             _buildInfoRow('Address Ref ID', addrDocNum),
           ],
+          _buildDocumentPreviewGrid(kycData, theme, isDark),
         ],
       ),
     );
   }
 
-  Widget _buildInReviewSummary(ThemeData theme, Map<String, dynamic>? kycData) {
-    return _buildPendingSummary(theme, kycData);
+  Widget _buildInReviewSummary(
+      ThemeData theme, Map<String, dynamic>? kycData, bool isDark) {
+    return _buildPendingSummary(theme, kycData, isDark);
+  }
+
+  Widget _buildDocumentPreviewGrid(
+      Map<String, dynamic>? kycData, ThemeData theme, bool isDark) {
+    if (kycData == null) return const SizedBox.shrink();
+
+    final docs = <Map<String, String>>[];
+    final idFront = (kycData['identityDocumentFrontUrl'] ??
+            kycData['documentFrontUrl'])
+        ?.toString();
+    final idBack = (kycData['identityDocumentBackUrl'] ??
+            kycData['documentBackUrl'])
+        ?.toString();
+    final addrFront = kycData['addressDocumentFrontUrl']?.toString();
+    final addrBack = kycData['addressDocumentBackUrl']?.toString();
+    final selfie = kycData['selfieUrl']?.toString();
+
+    if (idFront != null && idFront.trim().isNotEmpty) {
+      docs.add({'title': 'Identity Front', 'url': idFront.trim()});
+    }
+    if (idBack != null && idBack.trim().isNotEmpty) {
+      docs.add({'title': 'Identity Back', 'url': idBack.trim()});
+    }
+    if (addrFront != null && addrFront.trim().isNotEmpty) {
+      docs.add({'title': 'Address Proof', 'url': addrFront.trim()});
+    }
+    if (addrBack != null && addrBack.trim().isNotEmpty) {
+      docs.add({'title': 'Address Back', 'url': addrBack.trim()});
+    }
+    if (selfie != null && selfie.trim().isNotEmpty) {
+      docs.add({'title': 'Selfie Photo', 'url': selfie.trim()});
+    }
+
+    if (docs.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(height: 24),
+        Text(
+          'SUBMITTED DOCUMENT ATTACHMENTS',
+          style: GoogleFonts.inter(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+            color: theme.hintColor,
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 110,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: docs.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final doc = docs[index];
+              return InkWell(
+                onTap: () =>
+                    _showImagePreviewDialog(doc['url']!, doc['title']!),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: 110,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: theme.dividerColor),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(11)),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.network(
+                                doc['url']!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const Center(
+                                  child: Icon(Icons.broken_image_rounded,
+                                      size: 24, color: Colors.grey),
+                                ),
+                              ),
+                              Positioned(
+                                right: 4,
+                                bottom: 4,
+                                child: Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.65),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.zoom_in_rounded,
+                                      color: Colors.white, size: 14),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 4),
+                        child: Text(
+                          doc['title']!,
+                          style: GoogleFonts.inter(
+                              fontSize: 10, fontWeight: FontWeight.w600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildInfoRow(String label, String value) {
@@ -763,30 +1276,33 @@ class _KycScreenState extends ConsumerState<KycScreen> {
                 const SizedBox(height: 6),
                 TextFormField(
                   controller: _dobController,
-                  decoration: const InputDecoration(
-                    hintText: 'YYYY-MM-DD or DD/MM/YYYY',
-                    prefixIcon: Icon(Icons.calendar_today_rounded, size: 18),
+                  readOnly: true,
+                  onTap: _pickDob,
+                  decoration: InputDecoration(
+                    hintText: 'YYYY-MM-DD (Tap to select)',
+                    prefixIcon: const Icon(Icons.calendar_today_rounded, size: 18),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.date_range_rounded, size: 20),
+                      onPressed: _pickDob,
+                    ),
                   ),
                 ),
 
                 const SizedBox(height: 16),
 
-                // Selfie / Portrait Photo URL
-                Text(
-                  'Selfie or Portrait Photo URL (Optional)',
-                  style: theme.textTheme.titleMedium?.copyWith(fontSize: 13),
-                ),
-                const SizedBox(height: 6),
-                TextFormField(
+                // Selfie / Portrait Photo
+                _buildDocumentUploadCard(
+                  title: 'Selfie or Portrait Photo (Optional)',
+                  subtitle:
+                      'Clear, front-facing face photo (no sunglasses, caps, or filters)',
+                  fieldKey: 'selfie',
                   controller: _selfieUrlController,
-                  onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                    hintText: 'https://storage.../selfie.jpg',
-                    prefixIcon: Icon(Icons.camera_alt_outlined, size: 18),
-                  ),
+                  isRequired: false,
+                  icon: Icons.face_rounded,
+                  theme: theme,
+                  isDark: isDark,
+                  isAvatarStyle: true,
                 ),
-                if (_selfieUrlController.text.startsWith('http'))
-                  _buildUrlPreview(_selfieUrlController.text, 'Selfie Preview'),
               ],
             ),
           ),
@@ -887,49 +1403,34 @@ class _KycScreenState extends ConsumerState<KycScreen> {
 
                 const SizedBox(height: 16),
 
-                // Identity Front Document URL
-                Text(
-                  'Identity Document Front Image URL *',
-                  style: theme.textTheme.titleMedium?.copyWith(fontSize: 13),
-                ),
-                const SizedBox(height: 6),
-                TextFormField(
+                // Identity Front Document Upload Card
+                _buildDocumentUploadCard(
+                  title: 'Identity Document Front Side *',
+                  subtitle:
+                      'Upload clear photo or scan showing full name, photo, and ID number',
+                  fieldKey: 'identity_front',
                   controller: _identityFrontUrlController,
-                  onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                    hintText: 'https://storage.../identity_front.jpg',
-                    prefixIcon: Icon(Icons.link_rounded, size: 18),
-                  ),
-                  validator: (val) {
-                    if (val == null || val.trim().length < 8) {
-                      return 'Please provide a valid document front image URL';
-                    }
-                    return null;
-                  },
+                  isRequired: true,
+                  icon: Icons.badge_rounded,
+                  theme: theme,
+                  isDark: isDark,
                 ),
-                if (_identityFrontUrlController.text.startsWith('http'))
-                  _buildUrlPreview(
-                      _identityFrontUrlController.text, 'Identity Front Preview'),
 
-                const SizedBox(height: 16),
-
-                // Identity Back Document URL
-                Text(
-                  'Identity Document Back Image URL (Optional for PAN)',
-                  style: theme.textTheme.titleMedium?.copyWith(fontSize: 13),
-                ),
-                const SizedBox(height: 6),
-                TextFormField(
+                // Identity Back Document Upload Card
+                _buildDocumentUploadCard(
+                  title: _identityDocumentType == 'pan'
+                      ? 'Identity Document Back Side (Optional for PAN)'
+                      : 'Identity Document Back Side (Optional)',
+                  subtitle: _identityDocumentType == 'pan'
+                      ? 'PAN cards are single-sided; back upload is not required.'
+                      : 'Upload reverse side showing address, QR code, or validity details',
+                  fieldKey: 'identity_back',
                   controller: _identityBackUrlController,
-                  onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                    hintText: 'https://storage.../identity_back.jpg',
-                    prefixIcon: Icon(Icons.link_rounded, size: 18),
-                  ),
+                  isRequired: false,
+                  icon: Icons.flip_to_back_rounded,
+                  theme: theme,
+                  isDark: isDark,
                 ),
-                if (_identityBackUrlController.text.startsWith('http'))
-                  _buildUrlPreview(
-                      _identityBackUrlController.text, 'Identity Back Preview'),
               ],
             ),
           ),
@@ -1027,49 +1528,31 @@ class _KycScreenState extends ConsumerState<KycScreen> {
 
                 const SizedBox(height: 16),
 
-                // Address Front Document URL
-                Text(
-                  'Address Document Image URL *',
-                  style: theme.textTheme.titleMedium?.copyWith(fontSize: 13),
-                ),
-                const SizedBox(height: 6),
-                TextFormField(
+                // Address Front Document Upload Card
+                _buildDocumentUploadCard(
+                  title: 'Address Proof Document (Front / Page 1) *',
+                  subtitle:
+                      'Upload clear bill, statement, or ID side showing complete address & name',
+                  fieldKey: 'address_front',
                   controller: _addressFrontUrlController,
-                  onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                    hintText: 'https://storage.../address_document.jpg',
-                    prefixIcon: Icon(Icons.link_rounded, size: 18),
-                  ),
-                  validator: (val) {
-                    if (val == null || val.trim().length < 8) {
-                      return 'Please provide a valid address document image URL';
-                    }
-                    return null;
-                  },
+                  isRequired: true,
+                  icon: Icons.home_work_rounded,
+                  theme: theme,
+                  isDark: isDark,
                 ),
-                if (_addressFrontUrlController.text.startsWith('http'))
-                  _buildUrlPreview(
-                      _addressFrontUrlController.text, 'Address Proof Preview'),
 
-                const SizedBox(height: 16),
-
-                // Address Back Document URL
-                Text(
-                  'Address Document Back Image URL (Optional)',
-                  style: theme.textTheme.titleMedium?.copyWith(fontSize: 13),
-                ),
-                const SizedBox(height: 6),
-                TextFormField(
+                // Address Back Document Upload Card
+                _buildDocumentUploadCard(
+                  title: 'Address Proof Document (Back / Page 2 - Optional)',
+                  subtitle:
+                      'Second page or reverse side if address information spans multiple pages',
+                  fieldKey: 'address_back',
                   controller: _addressBackUrlController,
-                  onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                    hintText: 'https://storage.../address_back.jpg',
-                    prefixIcon: Icon(Icons.link_rounded, size: 18),
-                  ),
+                  isRequired: false,
+                  icon: Icons.flip_to_back_rounded,
+                  theme: theme,
+                  isDark: isDark,
                 ),
-                if (_addressBackUrlController.text.startsWith('http'))
-                  _buildUrlPreview(
-                      _addressBackUrlController.text, 'Address Back Preview'),
               ],
             ),
           ),
@@ -1136,47 +1619,464 @@ class _KycScreenState extends ConsumerState<KycScreen> {
     );
   }
 
-  Widget _buildUrlPreview(String url, String label) {
+  Widget _buildDocumentUploadCard({
+    required String title,
+    required String subtitle,
+    required String fieldKey,
+    required TextEditingController controller,
+    required bool isRequired,
+    required IconData icon,
+    required ThemeData theme,
+    required bool isDark,
+    bool isAvatarStyle = false,
+  }) {
+    final isUploading = _isFieldUploading(fieldKey);
+    final hasUrl = controller.text.trim().isNotEmpty;
+    final hasError = _submittedAttempt && isRequired && !hasUrl;
+    final isManualOpen = _showManualUrlInputs.contains(fieldKey);
+
     return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(8),
+      margin: const EdgeInsets.only(top: 6, bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+        color: isDark
+            ? Colors.black.withValues(alpha: 0.25)
+            : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: hasError
+              ? AppColors.danger
+              : (hasUrl
+                  ? AppColors.success.withValues(alpha: 0.45)
+                  : theme.dividerColor),
+          width: hasError ? 1.5 : 1.0,
+        ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: Image.network(
-              url,
-              width: 48,
-              height: 48,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(
-                width: 48,
-                height: 48,
-                color: Colors.grey.shade300,
-                child: const Icon(Icons.broken_image_rounded, size: 20),
-              ),
+          // Header / Title row
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: (hasUrl ? AppColors.success : AppColors.primary)
+                        .withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 18,
+                    color: hasUrl ? AppColors.success : AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              title,
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          if (isRequired)
+                            const Text(
+                              ' *',
+                              style: TextStyle(
+                                color: AppColors.danger,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                        ],
+                      ),
+                      Text(
+                        subtitle,
+                        style:
+                            theme.textTheme.bodySmall?.copyWith(fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+                if (hasUrl && !isUploading)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle_rounded,
+                            size: 13, color: AppColors.success),
+                        SizedBox(width: 4),
+                        Text(
+                          'Ready',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.success,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
+
+          const Divider(height: 1),
+
+          // Uploading State
+          if (isUploading)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(strokeWidth: 2.5),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Uploading document...',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                        Text(
+                          'Encrypting and uploading securely to cloud',
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )
+          // Has Uploaded File
+          else if (hasUrl)
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Image Thumbnail with tap to view
+                  GestureDetector(
+                    onTap: () =>
+                        _showImagePreviewDialog(controller.text, title),
+                    child: Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius:
+                              BorderRadius.circular(isAvatarStyle ? 32 : 10),
+                          child: Container(
+                            width: isAvatarStyle ? 64 : 76,
+                            height: 64,
+                            color: Colors.black.withValues(alpha: 0.1),
+                            child: Image.network(
+                              controller.text,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                width: 64,
+                                height: 64,
+                                color: Colors.grey.shade300,
+                                child: const Icon(Icons.broken_image_rounded,
+                                    size: 24),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          right: 2,
+                          bottom: 2,
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.65),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.fullscreen_rounded,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // File info & actions
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          controller.text.split('/').last,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            // View Full Image Button
+                            InkWell(
+                              onTap: () => _showImagePreviewDialog(
+                                  controller.text, title),
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color:
+                                      theme.dividerColor.withValues(alpha: 0.4),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.visibility_outlined, size: 13),
+                                    SizedBox(width: 4),
+                                    Text('View',
+                                        style: TextStyle(fontSize: 11)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Replace Button
+                            InkWell(
+                              onTap: () => _showImageSourcePicker(
+                                title: title,
+                                fieldKey: fieldKey,
+                                controller: controller,
+                              ),
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color:
+                                      AppColors.primary.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.sync_rounded,
+                                        size: 13, color: AppColors.primary),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Replace',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Remove Button
+                            InkWell(
+                              onTap: () {
+                                setState(() {
+                                  controller.clear();
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color:
+                                      AppColors.danger.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.delete_outline_rounded,
+                                        size: 13, color: AppColors.danger),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Remove',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.danger,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )
+          // Empty State - Prompt to Upload
+          else
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _pickAndUploadImage(
+                            fieldKey: fieldKey,
+                            controller: controller,
+                            source: ImageSource.camera,
+                          ),
+                          icon: const Icon(Icons.camera_alt_outlined, size: 16),
+                          label: const Text('Camera'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _pickAndUploadImage(
+                            fieldKey: fieldKey,
+                            controller: controller,
+                            source: ImageSource.gallery,
+                          ),
+                          icon: const Icon(Icons.photo_library_outlined,
+                              size: 16),
+                          label: const Text('Gallery'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                AppColors.primary.withValues(alpha: 0.12),
+                            foregroundColor: AppColors.primary,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (hasError) ...[
+                    const SizedBox(height: 8),
+                    const Row(
+                      children: [
+                        Icon(Icons.error_outline_rounded,
+                            size: 14, color: AppColors.danger),
+                        SizedBox(width: 6),
+                        Text(
+                          'Please upload this document to proceed',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: AppColors.danger,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+          // Manual URL Toggle / Input
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      if (isManualOpen) {
+                        _showManualUrlInputs.remove(fieldKey);
+                      } else {
+                        _showManualUrlInputs.add(fieldKey);
+                      }
+                    });
+                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isManualOpen
+                            ? Icons.arrow_drop_up_rounded
+                            : Icons.arrow_drop_down_rounded,
+                        size: 18,
+                        color: Colors.grey,
+                      ),
+                      Text(
+                        isManualOpen
+                            ? 'Hide manual URL'
+                            : 'or paste URL directly',
+                        style: GoogleFonts.inter(
+                          fontSize: 10.5,
+                          color: Colors.grey,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                Text(
-                  url,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 10, color: Colors.grey),
-                ),
+                if (isManualOpen) ...[
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: controller,
+                    onChanged: (_) => setState(() {}),
+                    style: const TextStyle(fontSize: 12),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: 'https://...',
+                      prefixIcon: const Icon(Icons.link_rounded, size: 16),
+                      suffixIcon: controller.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 16),
+                              onPressed: () =>
+                                  setState(() => controller.clear()),
+                            )
+                          : null,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

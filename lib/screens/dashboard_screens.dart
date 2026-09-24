@@ -795,7 +795,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Check the Dispatch Terminal to claim incoming requests.',
+              'Check the Bookings List to claim incoming requests.',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 10,
@@ -817,7 +817,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ),
               child: const Text(
-                'Open Dispatch Terminal',
+                'Open Bookings List',
                 style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
               ),
             ),
