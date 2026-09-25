@@ -1,12 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier<ThemeMode>(ThemeMode.dark);
+final ValueNotifier<ThemeMode> themeModeNotifier =
+    ValueNotifier<ThemeMode>(ThemeMode.system);
+
+void setThemeMode(ThemeMode mode) {
+  themeModeNotifier.value = mode;
+}
+
+void toggleTheme(bool isDark) {
+  themeModeNotifier.value = isDark ? ThemeMode.dark : ThemeMode.light;
+}
 
 class AppColors {
   // Brand colors
   static const Color primary = Color(0xFF1E40AF); // Trust Royal Blue
   static const Color secondary = Color(0xFF7C3AED); // Purple Interactive Accent
+  static const Color accent = Color(0xFF0D9488); // Teal Cleanliness Accent
   
   // Light Mode Colors
   static const Color lightBg = Color(0xFFF8FAFC);
@@ -31,6 +41,7 @@ class AppColors {
 class AppTheme {
   static ThemeData getLightTheme() {
     return ThemeData(
+      useMaterial3: true,
       brightness: Brightness.light,
       primaryColor: AppColors.primary,
       scaffoldBackgroundColor: AppColors.lightBg,
@@ -40,6 +51,9 @@ class AppTheme {
         primary: AppColors.primary,
         secondary: AppColors.secondary,
         surface: AppColors.lightCard,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onSurface: AppColors.lightTextPrimary,
         error: AppColors.danger,
       ),
       textTheme: GoogleFonts.interTextTheme().copyWith(
@@ -96,6 +110,7 @@ class AppTheme {
 
   static ThemeData getDarkTheme() {
     return ThemeData(
+      useMaterial3: true,
       brightness: Brightness.dark,
       primaryColor: AppColors.primary,
       scaffoldBackgroundColor: AppColors.darkBg,
@@ -105,6 +120,9 @@ class AppTheme {
         primary: AppColors.primary,
         secondary: AppColors.secondary,
         surface: AppColors.darkCard,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onSurface: AppColors.darkTextPrimary,
         error: AppColors.danger,
       ),
       textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(

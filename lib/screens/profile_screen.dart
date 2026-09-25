@@ -1628,7 +1628,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           _buildMetricItem(
                             theme,
                             'SETTLED PAYOUT',
-                            '\$${totalSettledEarnings.toStringAsFixed(2)}',
+                            '₹${totalSettledEarnings.toStringAsFixed(2)}',
                             AppColors.success,
                           ),
                           const SizedBox(width: 10),
@@ -1687,7 +1687,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               Row(
                                 children: [
                                   Text(
-                                    '\$${totalSettledEarnings.toStringAsFixed(2)}',
+                                    '₹${totalSettledEarnings.toStringAsFixed(2)}',
                                     style: GoogleFonts.poppins(
                                       color: AppColors.primary,
                                       fontWeight: FontWeight.bold,
@@ -1981,7 +1981,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
                       // Theme toggle card for mobile
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         decoration: BoxDecoration(
                           color: theme.cardColor,
                           borderRadius: BorderRadius.circular(16),
@@ -1992,31 +1992,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           children: [
                             Row(
                               children: [
-                                Icon(
-                                  isDark
-                                      ? Icons.dark_mode_outlined
-                                      : Icons.light_mode_outlined,
+                                const Icon(
+                                  Icons.palette_outlined,
                                   color: AppColors.primary,
+                                  size: 20,
                                 ),
                                 const SizedBox(width: 12),
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Interface Theme',
-                                      style: theme.textTheme.bodyLarge
-                                          ?.copyWith(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                          ),
+                                      'Appearance Theme',
+                                      style: theme.textTheme.bodyLarge?.copyWith(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                     const SizedBox(height: 2),
-                                    Text(
-                                      isDark
-                                          ? 'Dark Mode Active'
-                                          : 'Light Mode Active',
-                                      style: theme.textTheme.bodyMedium
-                                          ?.copyWith(fontSize: 9),
+                                    ValueListenableBuilder<ThemeMode>(
+                                      valueListenable: themeModeNotifier,
+                                      builder: (context, currentMode, _) {
+                                        return Text(
+                                          currentMode == ThemeMode.system
+                                              ? 'System (Default)'
+                                              : currentMode == ThemeMode.dark
+                                                  ? 'Dark Mode Active'
+                                                  : 'Light Mode Active',
+                                          style: theme.textTheme.bodyMedium?.copyWith(fontSize: 10),
+                                        );
+                                      },
                                     ),
                                   ],
                                 ),
@@ -2025,15 +2029,52 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             ValueListenableBuilder<ThemeMode>(
                               valueListenable: themeModeNotifier,
                               builder: (context, currentMode, _) {
-                                return Switch(
-                                  value: currentMode == ThemeMode.dark,
-                                  activeThumbColor: Colors.white,
-                                  activeTrackColor: AppColors.primary,
-                                  onChanged: (val) {
-                                    themeModeNotifier.value = val
-                                        ? ThemeMode.dark
-                                        : ThemeMode.light;
-                                  },
+                                return DropdownButtonHideUnderline(
+                                  child: DropdownButton<ThemeMode>(
+                                    value: currentMode,
+                                    dropdownColor: theme.cardColor,
+                                    icon: Icon(
+                                      Icons.arrow_drop_down,
+                                      color: theme.textTheme.bodyMedium?.color,
+                                    ),
+                                    items: const [
+                                      DropdownMenuItem(
+                                        value: ThemeMode.system,
+                                        child: Text(
+                                          'System',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: ThemeMode.light,
+                                        child: Text(
+                                          'Light',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: ThemeMode.dark,
+                                        child: Text(
+                                          'Dark',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                    onChanged: (mode) {
+                                      if (mode != null) {
+                                        themeModeNotifier.value = mode;
+                                      }
+                                    },
+                                  ),
                                 );
                               },
                             ),

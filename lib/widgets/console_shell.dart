@@ -322,6 +322,11 @@ class ResponsiveConsoleShell extends StatelessWidget {
                       child: Row(
                         children: [
                           _buildThemeButton(
+                            icon: Icons.brightness_auto,
+                            isActive: currentMode == ThemeMode.system,
+                            onTap: () => themeModeNotifier.value = ThemeMode.system,
+                          ),
+                          _buildThemeButton(
                             icon: Icons.light_mode,
                             isActive: currentMode == ThemeMode.light,
                             onTap: () => themeModeNotifier.value = ThemeMode.light,
@@ -536,7 +541,7 @@ class ResponsiveConsoleShell extends StatelessWidget {
                 const SizedBox(height: 8),
                 _buildInspectorVariableRow('Job Status:', 'ACCEPTED', AppColors.warning),
                 const SizedBox(height: 8),
-                _buildInspectorVariableRow('Net Wallet Balance:', '\$1,250.00', null),
+                _buildInspectorVariableRow('Net Wallet Balance:', '₹1,250.00', null),
               ],
             ),
           ),

@@ -932,14 +932,14 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                           const SizedBox(height: 12),
                           _buildReceiptRow(
                             'Base Rate / Original:',
-                            '\$$originalAmount.00',
+                            '₹$originalAmount.00',
                             false,
                           ),
                           if (discountAmount > 0) ...[
                             const SizedBox(height: 6),
                             _buildReceiptRow(
                               'Coupon Discount:',
-                              '-\$$discountAmount.00',
+                              '-₹$discountAmount.00',
                               false,
                             ),
                           ],
@@ -948,7 +948,7 @@ class _BookingDetailScreenState extends ConsumerState<BookingDetailScreen> {
                           const SizedBox(height: 10),
                           _buildReceiptRow(
                             'Calculated Net Payout:',
-                            '\$$totalAmount.00',
+                            '₹$totalAmount.00',
                             true,
                           ),
                         ],

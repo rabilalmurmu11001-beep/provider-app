@@ -128,7 +128,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     String? cleanMobile;
     if (rawMobile.isNotEmpty) {
       final sanitized = rawMobile.replaceAll(RegExp(r'[\s\-\(\)]'), '');
-      final formatted = sanitized.startsWith('+') ? sanitized : '+1$sanitized';
+      final formatted = sanitized.startsWith('+') ? sanitized : '+91$sanitized';
       if (!RegExp(r'^\+?[0-9]{10,15}$').hasMatch(formatted)) {
         _showErrorSnackBar(
           'Please enter a valid mobile number (10-15 digits) or leave it blank.',
@@ -335,10 +335,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Text('🇺🇸', style: TextStyle(fontSize: 15)),
+                              const Text('�🇳', style: TextStyle(fontSize: 15)),
                               const SizedBox(width: 4),
                               Text(
-                                '+1',
+                                '+91',
                                 style: GoogleFonts.inter(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,

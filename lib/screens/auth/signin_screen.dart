@@ -65,7 +65,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (raw.startsWith('+')) {
         return raw;
       }
-      return '+1$raw';
+      return '+91$raw';
     }
   }
 
@@ -500,10 +500,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text('🇺🇸', style: TextStyle(fontSize: 15)),
+                            const Text('�🇳', style: TextStyle(fontSize: 15)),
                             const SizedBox(width: 4),
                             Text(
-                              '+1',
+                              '+91',
                               style: GoogleFonts.inter(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,

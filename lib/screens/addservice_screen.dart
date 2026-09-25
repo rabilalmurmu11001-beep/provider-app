@@ -113,7 +113,7 @@ class _AddServiceScreenState extends State<AddServiceScreen> {
 
                     // Price input
                     Text(
-                      'Fixed Marketplace Rate (\$)',
+                      'Fixed Marketplace Rate (₹)',
                       style: GoogleFonts.inter(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,

@@ -409,8 +409,8 @@ class _BookingsScreenState extends ConsumerState<BookingsScreen> {
         final scheduledDate = _formatDate(booking['scheduledDate']);
         final scheduledTime = booking['scheduledTime']?.toString() ?? 'TBD';
         final totalAmount = booking['totalAmount'] != null
-            ? '\$${booking['totalAmount']}'
-            : '\$${service['basePrice'] ?? '0.00'}';
+            ? '₹${booking['totalAmount']}'
+            : '₹${service['basePrice'] ?? '0.00'}';
         final addressLine =
             '${address['street_no_or_name'] ?? ''} ${address['city'] ?? ''}, ${address['state'] ?? ''}'.trim();
         final bookingStatus = (booking['bookingStatus']?.toString() ?? 'requested').toUpperCase();

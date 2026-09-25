@@ -155,7 +155,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      'Marketplace fixed rate: \$${item.price.toStringAsFixed(2)}',
+                                      'Marketplace fixed rate: ₹${item.price.toStringAsFixed(2)}',
                                       style: theme.textTheme.bodyMedium?.copyWith(fontSize: 9.5),
                                     ),
                                   ],

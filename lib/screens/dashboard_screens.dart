@@ -482,7 +482,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '\$${totalEarned.toStringAsFixed(2)}',
+                                    '₹${totalEarned.toStringAsFixed(2)}',
                                     style: GoogleFonts.poppins(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
@@ -868,8 +868,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     ].where((e) => e != null && e.toString().trim().isNotEmpty).join(' ');
 
     final totalAmount = booking['totalAmount'] != null
-        ? '\$${booking['totalAmount']}'
-        : '\$${service['basePrice'] ?? '0.00'}';
+        ? '₹${booking['totalAmount']}'
+        : '₹${service['basePrice'] ?? '0.00'}';
     final status = (booking['bookingStatus']?.toString() ?? 'ACCEPTED').toUpperCase();
     final isInProgress = status == 'IN_PROGRESS';
 

@@ -133,7 +133,7 @@ class EarningsScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              '\$${totalSettledEarnings.toStringAsFixed(2)}',
+                              '₹${totalSettledEarnings.toStringAsFixed(2)}',
                               style: GoogleFonts.poppins(
                                 color: Colors.white,
                                 fontSize: 26,
@@ -297,7 +297,7 @@ class EarningsScreen extends ConsumerWidget {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  '+\$${amount.toStringAsFixed(2)}',
+                                  '+₹${amount.toStringAsFixed(2)}',
                                   style: const TextStyle(
                                     color: AppColors.success,
                                     fontWeight: FontWeight.bold,
