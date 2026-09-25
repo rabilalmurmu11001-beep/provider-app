@@ -209,6 +209,58 @@ class AuthService {
     return updateUserProfile({'photo': photoUrl});
   }
 
+  /// Request OTP for updating or verifying email
+  Future<Response> requestEmailUpdateOtp(String email) async {
+    try {
+      final Response<dynamic> result = await _dio.post(
+        "/users/request-email-otp?r=provider",
+        data: {"email": email},
+      );
+      return result;
+    } catch (err) {
+      rethrow;
+    }
+  }
+
+  /// Verify OTP and update email
+  Future<Response> verifyEmailUpdateOtp(String email, String otp) async {
+    try {
+      final Response<dynamic> result = await _dio.post(
+        "/users/verify-email-otp?r=provider",
+        data: {"email": email, "otp": otp},
+      );
+      return result;
+    } catch (err) {
+      rethrow;
+    }
+  }
+
+  /// Request OTP for updating or verifying mobile number
+  Future<Response> requestMobileUpdateOtp(String mobile) async {
+    try {
+      final Response<dynamic> result = await _dio.post(
+        "/users/request-mobile-otp?r=provider",
+        data: {"mobile": mobile},
+      );
+      return result;
+    } catch (err) {
+      rethrow;
+    }
+  }
+
+  /// Verify OTP and update mobile number
+  Future<Response> verifyMobileUpdateOtp(String mobile, String otp) async {
+    try {
+      final Response<dynamic> result = await _dio.post(
+        "/users/verify-mobile-otp?r=provider",
+        data: {"mobile": mobile, "otp": otp},
+      );
+      return result;
+    } catch (err) {
+      rethrow;
+    }
+  }
+
   /// Send password reset email
   Future<Response> resetPassword(String email) async {
     try {

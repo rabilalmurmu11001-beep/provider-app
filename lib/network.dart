@@ -7,7 +7,7 @@ import 'router.dart';
 import 'services/notification_service.dart';
 
 // final String host = 'https://13.51.197.245:7000';
-final String host = 'https://10.113.40.96:7000';
+final String host = 'https://10.49.15.96:7000';
 // final String host = 'https://192.168.31.13:7000';
 // final String host = 'https://10.113.40.96:7000';
 final dioProvider = Provider<Dio>((ref) {
