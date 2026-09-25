@@ -771,29 +771,47 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   ) {
     if (activeJob == null) {
       return Container(
+        width: double.infinity,
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: theme.cardColor,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: theme.dividerColor),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.18)),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.assignment_turned_in_outlined,
-              size: 36,
-              color: AppColors.primary.withValues(alpha: 0.6),
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.assignment_turned_in_outlined,
+                size: 26,
+                color: AppColors.primary,
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
               'No Active Jobs in Progress',
+              textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 12.5,
                 fontWeight: FontWeight.bold,
                 color: theme.textTheme.bodyLarge?.color,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
               'Check the Bookings List to claim incoming requests.',
               textAlign: TextAlign.center,
@@ -802,23 +820,33 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 color: AppColors.lightTextSecondary,
               ),
             ),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: () => context.go('/bookings'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+            const SizedBox(height: 14),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 180),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => context.go('/bookings'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'Open Bookings List',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-              ),
-              child: const Text(
-                'Open Bookings List',
-                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
               ),
             ),
           ],

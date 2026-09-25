@@ -1,11 +1,33 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider_app/screens/profile_screen.dart';
+import 'package:provider_app/services/authServices.dart';
 import 'package:provider_app/stores/bookingProviders.dart';
 import 'package:provider_app/stores/kyc_providers.dart';
 import 'package:provider_app/stores/providers.dart';
 import 'package:provider_app/theme.dart';
+
+class FakeAuthService extends AuthService {
+  FakeAuthService() : super(Dio());
+
+  @override
+  Future<Response> requestEmailUpdateOtp(String email) async {
+    return Response(
+      requestOptions: RequestOptions(path: '/users/request-email-otp'),
+      data: {'status': 'ok'},
+    );
+  }
+
+  @override
+  Future<Response> verifyEmailUpdateOtp(String email, String otp) async {
+    return Response(
+      requestOptions: RequestOptions(path: '/users/verify-email-otp'),
+      data: {'user': {'id': 'user-1', 'email': email}},
+    );
+  }
+}
 
 void main() {
   Widget createProfileScreen({
@@ -122,5 +144,57 @@ void main() {
     // After modifying email, it should show 'Requires OTP' and 'Verify with OTP'
     expect(find.text('Requires OTP'), findsOneWidget);
     expect(find.text('Verify with OTP'), findsOneWidget);
+  });
+
+  testWidgets(
+      'Profile email OTP flow does not show a loading spinner while requesting or verifying the code',
+      (WidgetTester tester) async {
+    final mockUser = {
+      'id': 'user-1',
+      'username': 'Rahul Sharma',
+      'email': 'rahul@example.com',
+      'mobile': '9876543210',
+      'isEmailVerified': true,
+      'isPhoneVerified': true,
+      'role': 'service_provider',
+      'address': 'Main Hub Street',
+    };
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authServiceProvider.overrideWithValue(FakeAuthService()),
+          providerProfileProvider.overrideWith((ref) => mockUser),
+          providerProfileAsyncProvider.overrideWith((ref) async => mockUser),
+          kycStatusAsyncProvider.overrideWith((ref) async => {
+                'isVerified': true,
+                'kycStatus': 'approved',
+              }),
+          providerAssignedBookingsProvider('completed')
+              .overrideWith((ref) async => []),
+          providerAssignedBookingsProvider('assigned')
+              .overrideWith((ref) async => []),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.getLightTheme(),
+          darkTheme: AppTheme.getDarkTheme(),
+          home: const ProfileScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Edit Info'));
+    await tester.pumpAndSettle();
+
+    final emailField = find.widgetWithText(TextFormField, 'rahul@example.com');
+    await tester.enterText(emailField, 'newemail@example.com');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Verify with OTP'));
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.text('Verify New Email'), findsOneWidget);
   });
 }

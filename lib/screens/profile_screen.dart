@@ -241,15 +241,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     required String type, // 'email' or 'mobile'
     required String target,
   }) async {
-    // 1. Show loading indicator while requesting OTP
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      ),
-    );
-
     try {
       final authService = ref.read(authServiceProvider);
       if (type == 'email') {
@@ -257,12 +248,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       } else {
         await authService.requestMobileUpdateOtp(target);
       }
-      if (context.mounted) {
-        Navigator.of(context).pop(); // dismiss loading dialog
-      }
     } catch (e) {
       if (context.mounted) {
-        Navigator.of(context).pop(); // dismiss loading dialog
         String errorMsg = 'Failed to send verification code';
         if (e is DioException && e.response?.data != null) {
           final data = e.response!.data;
@@ -2551,8 +2538,6 @@ class _ProfileOtpVerificationSheetState
   final FocusNode _focusNode = FocusNode();
   int _countdown = 60;
   Timer? _timer;
-  bool _isVerifying = false;
-  bool _isResending = false;
   String? _errorMessage;
 
   @override
@@ -2593,9 +2578,8 @@ class _ProfileOtpVerificationSheetState
   }
 
   Future<void> _handleResend() async {
-    if (_countdown > 0 || _isResending) return;
+    if (_countdown > 0) return;
     setState(() {
-      _isResending = true;
       _errorMessage = null;
     });
     try {
@@ -2628,12 +2612,6 @@ class _ProfileOtpVerificationSheetState
       setState(() {
         _errorMessage = msg;
       });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isResending = false;
-        });
-      }
     }
   }
 
@@ -2647,7 +2625,6 @@ class _ProfileOtpVerificationSheetState
     }
 
     setState(() {
-      _isVerifying = true;
       _errorMessage = null;
     });
 
@@ -2681,7 +2658,6 @@ class _ProfileOtpVerificationSheetState
       }
       setState(() {
         _errorMessage = msg;
-        _isVerifying = false;
       });
     }
   }
@@ -2910,26 +2886,20 @@ class _ProfileOtpVerificationSheetState
                   )
                 else
                   TextButton(
-                    onPressed: _isResending ? null : _handleResend,
+                    onPressed: _handleResend,
                     style: TextButton.styleFrom(
                       padding: EdgeInsets.zero,
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: _isResending
-                        ? const SizedBox(
-                            width: 12,
-                            height: 12,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(
-                            'Resend Code',
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
-                            ),
-                          ),
+                    child: Text(
+                      'Resend Code',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -2940,23 +2910,14 @@ class _ProfileOtpVerificationSheetState
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
-                onPressed: _isVerifying ? null : _handleVerify,
-                child: _isVerifying
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : Text(
-                        'Verify & Confirm',
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                onPressed: _handleVerify,
+                child: Text(
+                  'Verify & Confirm',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 8),
